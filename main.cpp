@@ -128,7 +128,7 @@ void search(const char *cPath, const char *filename, const char *lpstr, void(*fu
 	remove_comment(content);
 	std::vector<std::string>str;
 	fun(content, lpstr, str);
-	if(!str.empty())printf("\e[32m%s\e[0m\n", filename);
+	if(!str.empty())printf("\e[32m%s\e[0m\n", szPath);
 	for(int i = 0; i < str.size(); i++)
 		printf("\t%s\n", str[i].c_str());
 	delete[]content;
