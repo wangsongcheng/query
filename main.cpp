@@ -165,11 +165,14 @@ void search_fun(const char *content, const char *lpstr, std::vector<std::string>
 		if(isFun(lpStart)){
 			char *p = lpStart;
 			p = strchr(lpStart, ';');
-			lpStart = movepointer(lpStart, '\n', true);lpStart++;
-			*(p + 1) = 0;
-			std::string buff(lpStart);
-			str.push_back(buff);
-			*(p + 1) = '\n';
+			if(p && lpStart){
+				lpStart = movepointer(lpStart, '\n', true);lpStart++;
+				if(!lpStart || !p)continue;
+				*(p + 1) = 0;
+				std::string buff(lpStart);
+				str.push_back(buff);
+				*(p + 1) = '\n';
+			}
 		}
 		lpStart = strchr(lpStart, '\n');
 	}
@@ -186,16 +189,19 @@ void search_macro(const char *content, const char *lpstr, std::vector<std::strin
 		if(!memcmp(p, "#define ", strlen("#define "))){
 			lpStart = p;
 			p = strchr(lpStart, '\n');
-			if(p){
+			if(p && lpStart){
 				if('\\' == *(p - 1)){
 					do{
 						p++;
 						p = strchr(lpStart, '\n');
+						if(!p)break;
 					}while('\\' == *(p - 1));
 				}
-				*p = 0;
-				std::string buff(lpStart);
-				str.push_back(buff);
+				if(p){
+					*p = 0;
+					std::string buff(lpStart);
+					str.push_back(buff);		
+				}
 			}
 		}
 		lpStart += strlen(lpstr) + strlen("#define ");
@@ -216,7 +222,7 @@ void search_struct(const char *content, const char *lpstr, std::vector<std::stri
 			if(memcmp(p, "typedef ", strlen("typedef")))p += strlen("typedef");
 			lpStart = p;
 			p = strchr(lpStart, '\n');
-			if(';' != *(p - 1)){
+			if(p && ';' != *(p - 1)){
 				int count = 1;
 				p = strchr(lpStart, '{');
 				if(p){
@@ -224,6 +230,7 @@ void search_struct(const char *content, const char *lpstr, std::vector<std::stri
 						p++;
 						if(*p == '{')count++;
 						if(*p == '}')count--;
+						if(!p)break;
 					}while(count);
 					p = strchr(p, '\n');
 				}
@@ -249,9 +256,11 @@ void search_type_define(const char *content, const char *lpstr, std::vector<std:
 		if(!memcmp(p, "typedef ", strlen("typedef "))){
 			lpStart = p;
 			p = strchr(lpStart, '\n');
-			*p = 0;
-			std::string buff(lpStart);
-			str.push_back(buff);
+			if(p){
+				*p = 0;
+				std::string buff(lpStart);
+				str.push_back(buff);
+			}
 		}
 		lpStart += strlen(lpstr) + strlen("typedef ");
 	}
