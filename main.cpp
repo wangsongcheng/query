@@ -138,26 +138,26 @@ void search(const char *cPath, const char *filename, const char *lpstr, void(*fu
 		*(lpStart - 1) = 0;
 		line = linage(content);
 		*(lpStart - 1) = ch;
-		printf("%d\t%s\n",line, str[i].c_str());
+		printf("%d:%s\n",line, str[i].c_str());
 	}
 	delete[]content;
 	str.clear();
 }
 bool isFun(char *lpstr){
+//	what is function? before have ' ' after have '('
 	char *p = lpstr;
+	bool isfun = false;
 	p = movepointer(p, '\n', true);p++;
-	if('#' == *p)return false;
-	if(' ' != *(lpstr - 1) && '\t' != *(lpstr - 1))return false;
-	for(p = lpstr; *p && (*p >= 'A' && *p <= 'Z' || *p >= 'a' && *p <= 'z'); p++);
-	if(*p == '(')return true;
-	if(*p == ' ' || *p == '\t'){
-		for(; *p && *p != '\n' && *p != '('; p++);
-		if(*p != '(')return false;
+	if('#' != *p && (' ' == *(lpstr - 1) || '\t' == *(lpstr - 1))){
+		p = strchr(lpstr, '\n');
+		if(p){
+			*p = 0;
+//			printf("lpstr = %s\n", lpstr);
+			if(strchr(lpstr, '('))isfun = true;
+			*p = '\n';
+		}
 	}
-	else{
-		return false;
-	}
-	return true;
+	return isfun;
 }
 //--前 ++后
 char *movepointer(char *p, char ch, bool bfront){
@@ -180,16 +180,18 @@ void search_fun(const char *content, const char *lpstr, std::vector<std::string>
 	while((lpStart = strstr(lpStart, lpstr))){
 		//---判断找到的字符串是否是函数
 //		printf("%.*s\n", 50, lpStart);
-		if(strchr(lpStart, '(') || isFun(lpStart)){
-			char *p = lpStart;
-			p = strchr(lpStart, ';');
+		if(isFun(lpStart)){
+			char *p = strchr(lpStart, '\n');
+		//	p = strchr(lpStart, ';');
 			if(p && lpStart){
 				lpStart = movepointer(lpStart, '\n', true);lpStart++;
 				if(!lpStart || !p)continue;
-				*(p + 1) = 0;
+			//	*(p + 1) = 0;
+				*p = 0;
 				std::string buff(lpStart);
 				str.push_back(buff);
-				*(p + 1) = '\n';
+				*p = '\n';
+			//	*(p + 1) = '\n';
 			}
 		}
 		lpStart = strchr(lpStart, '\n');
