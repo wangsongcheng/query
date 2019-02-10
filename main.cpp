@@ -30,6 +30,7 @@ void search_fun(const char *content, const char *lpstr, std::vector<std::string>
 void search_macro(const char *content, const char *lpstr, std::vector<std::string>&str);
 void search_struct(const char *content, const char *lpstr, std::vector<std::string>&str);
 void search_type_define(const char *content, const char *lpstr, std::vector<std::string>&str);
+bool str_sep(char *lpstr, char *_str, const char *search);
 //char *strrpc(char *str,char *oldstr,char *newstr);
 int main(int argc, char *argv[]){
 	if(isInvalid(argc, argv)){
@@ -181,22 +182,30 @@ void search_fun(const char *content, const char *lpstr, std::vector<std::string>
 		//---判断找到的字符串是否是函数
 //		printf("%.*s\n", 50, lpStart);
 		if(isFun(lpStart)){
-			char *p = strchr(lpStart, '\n');
-		//	p = strchr(lpStart, ';');
-			if(p && lpStart){
-				lpStart = movepointer(lpStart, '\n', true);lpStart++;
-				if(!lpStart || !p)continue;
-			//	*(p + 1) = 0;
-				*p = 0;
-				std::string buff(lpStart);
-				str.push_back(buff);
-				*p = '\n';
-			//	*(p + 1) = '\n';
+			lpStart = movepointer(lpStart, '\n', true);lpStart++;
+			if(lpStart){
+				char buff[MAXBYTE] = {0};
+				if(str_sep(lpStart, buff, "\n")){
+					std::string _str(buff);
+					str.push_back(_str);
+				}
+				else{
+					printf("str_sep return null\n");
+				}
 			}
 		}
 		lpStart = strchr(lpStart, '\n');
 	}
 	delete[]Buff;
+}
+bool str_sep(char *lpstr, char *_str, const char *search){
+	if(!lpstr || !_str || !search)return false;
+	char *str = strstr(lpstr, search);
+	if(!str)return false;
+	*str = 0;
+	strcpy(_str, lpstr);
+	*str = search[0];
+	return true;
 }
 void search_macro(const char *content, const char *lpstr, std::vector<std::string>&str){
 	int count = strlen(content);
