@@ -19,6 +19,7 @@ int getfilelen(FILE *fp);
 void getdir(const char *root, std::vector<search_infor>&path);
 bool get_val_in_line(int argc, char *argv[], const char *lpsstr, char *lpstr);
 int get_index_in_line(int argc, char *argv[], const char *str);
+int linage(char *content);
 void help();
 bool isFun(char *lpstr);
 bool isInvalid(int argc, char *argv[]);
@@ -125,12 +126,20 @@ void search(const char *cPath, const char *filename, const char *lpstr, void(*fu
 	memset(content, 0, size + 1);
 	fread(content, size, 1, fp);
 	fclose(fp);
-	remove_comment(content);
+	//remove_comment(content);
 	std::vector<std::string>str;
 	fun(content, lpstr, str);
+	int line;
+	char *lpStart = 0;//show line
 	if(!str.empty())printf("\e[32m%s\e[0m\n", szPath);
-	for(int i = 0; i < str.size(); i++)
-		printf("\t%s\n", str[i].c_str());
+	for(int i = 0; i < str.size(); i++){
+		lpStart = strstr(content, str[i].c_str());
+		char ch = *(lpStart - 1);
+		*(lpStart - 1) = 0;
+		line = linage(content);
+		*(lpStart - 1) = ch;
+		printf("%d\t%s\n",line, str[i].c_str());
+	}
 	delete[]content;
 	str.clear();
 }
@@ -139,6 +148,15 @@ bool isFun(char *lpstr){
 	p = movepointer(p, '\n', true);p++;
 	if('#' == *p)return false;
 	if(' ' != *(lpstr - 1) && '\t' != *(lpstr - 1))return false;
+	for(p = lpstr; *p && (*p >= 'A' && *p <= 'Z' || *p >= 'a' && *p <= 'z'); p++);
+	if(*p == '(')return true;
+	if(*p == ' ' || *p == '\t'){
+		for(; *p && *p != '\n' && *p != '('; p++);
+		if(*p != '(')return false;
+	}
+	else{
+		return false;
+	}
 	return true;
 }
 //--前 ++后
@@ -162,7 +180,7 @@ void search_fun(const char *content, const char *lpstr, std::vector<std::string>
 	while((lpStart = strstr(lpStart, lpstr))){
 		//---判断找到的字符串是否是函数
 //		printf("%.*s\n", 50, lpStart);
-		if(isFun(lpStart)){
+		if(strchr(lpStart, '(') || isFun(lpStart)){
 			char *p = lpStart;
 			p = strchr(lpStart, ';');
 			if(p && lpStart){
@@ -345,6 +363,12 @@ void remove_comment(char *content){
 		}
 		lpStart++;
 	}
+}
+int linage(char *content){
+	int line = 1;
+	char *lpStart = content;
+	while((lpStart = strchr(lpStart, '\n')) && ++line && ++lpStart);
+	return line;
 }
 /*
 char *strrpc(char *str,char *oldstr,char *newstr){
