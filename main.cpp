@@ -156,7 +156,7 @@ void getdir(const char *root, std::vector<search_infor>&path){
 					else
 						_stprintf(cPath, _T("%.*s\\%s"),strlen(cPath) - strlen("\\*.*"), fa.name);
 					getdir(cPath, path);
-					memset(&cPath[strlen(cPath) - stlen(fa.name) - 1], 0, strlen(cPath) - strlen(fa.name));
+					memset(&cPath[strlen(cPath) - strlen(fa.name) - 1], 0, strlen(cPath) - strlen(fa.name));
 				}
 			}
 			else{
