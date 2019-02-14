@@ -2,7 +2,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef __linux
 #include <dirent.h>
+#endif
+#ifdef WINVER
+#include <windows.h>
+#endif
 #include <iostream>
 #include <vector>
 #include <string>
@@ -82,10 +87,11 @@ int main(int argc, char *argv[]){
 	return 0;
 }
 void getdir(const char *root, std::vector<search_infor>&path){
-	DIR *d;
-	dirent *file = NULL;
 	search_infor infor;
 	strcpy(infor.spath, root);
+#ifdef __linux
+	DIR *d;
+	dirent *file = NULL;
 	if(!(d = opendir(root))){
 		perror("opendir error");
 		printf("path is %s\n", root);
@@ -108,6 +114,35 @@ void getdir(const char *root, std::vector<search_infor>&path){
 		}
 	}
 	closedir(d);
+#endif
+#ifdef WINVER
+//	long fHandle = 0;
+//	struct _finddata_t fa = {0};
+	WIN32_FIND_DATA FindFileData;
+	if(infor.spath[strlen(infor.spath) - 1] == '\\')
+		strcat(infor.spath, "*.*");
+	else
+		strcat(infor.spath, "\\*.*");
+	HANDLE hFind = FindFirstFile(infor.spath, &FindFileData);
+	if(INVALID_HANDLE == hFind){
+		perror("FindFirstFile error");
+		printf("path is %s\n", infor.spath);
+		return 0;
+	}
+	else{
+		do{
+			if(FindFileData.dwFileAttributes == FILE_ATTRIBUTE_DIRECTORY){
+				char szPath[MAXPATH] = {0};
+				sprintf(szPath, "%.*s\\%s", strlen(infor.spath) - strlen("\\*.*"), infor.spath, FindFileData.cFileName);
+				getdir(szPath, path);
+			}
+			else{
+				std::string name(FindFileData.cFileName);
+				infor.sfname.push_back(name);			
+			}
+		}while(!_findnext(fHandle, &fa));
+	}
+#endif
 	path.push_back(infor);
 }
 void search(const char *cPath, const char *filename, const char *lpstr, void(*fun)(const char *content, const char *lpstr, std::vector<std::string>&str)){
