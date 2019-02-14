@@ -16,10 +16,10 @@
 #include <iostream>
 #include <vector>
 #ifdef __linux
-#define MAXPATH 360
 #define MAXBYTE 0xff
-#define INVALID_VAL -1
+#define MAX_PATH 360
 #endif
+#define INVALID_VAL -1
 struct search_infor{
 	char spath[MAXBYTE];//search path
 	std::vector<std::string> sfname;//search file name
@@ -53,7 +53,7 @@ int main(int argc, char *argv[]){
 	int fun_index = INVALID_VAL;
 	char sstr[MAXBYTE] = {0};//search string
 	char sfName[MAXBYTE] = {0};//search file name
-	char rootdirectory[MAXPATH] = {0};
+	char rootdirectory[MAX_PATH] = {0};
 	std::vector<search_infor>path;
 	void (*fun[])(const char *content, const char *lpstr, std::vector<std::string>&str) = {
 		search_fun,
@@ -73,6 +73,9 @@ int main(int argc, char *argv[]){
 		char *env = getenv("include");
 		if(env){
 			strcpy(rootdirectory, env);
+		}
+		else{
+			printf("not found environment variable:include, please specify include path or other path\n");
 		}
 #endif
 	}
@@ -114,7 +117,7 @@ void getdir(const char *root, std::vector<search_infor>&path){
 	while((file = readdir(d))){
 		if(strcmp(file->d_name, ".") && strcmp(file->d_name, "..")){
 			if(file->d_type == DT_DIR){
-				char szPath[MAXPATH] = {0};
+				char szPath[MAX_PATH] = {0};
 				if('/' != infor.spath[strlen(infor.spath) - 1])
 					sprintf(szPath, "%s/%s", infor.spath, file->d_name);
 				else
@@ -139,17 +142,21 @@ void getdir(const char *root, std::vector<search_infor>&path){
 		_stprintf(cPath, _T("%s\\*.*"), root);
 	fHandle = _tfindfirst(cPath, &fa);
 	if (-1 == fHandle) {
-		_tperror(_T("findfirst error"));
-		_tprintf(_T("path is %s\n"), cPath);
-		return 1;
+		perror(_T("findfirst error"));
+		printf(_T("path is %s\n"), cPath);
+		return;
 	}
 	else {
 		do {
 			if (_A_SUBDIR == fa.attrib) {
 				//目录
 				if (_tcscmp(fa.name, _T(".")) && _tcscmp(fa.name, _T(".."))) {
-					_stprintf(cPath, _T("%.*s%s"),strlen(cPath) - strlen("*.*"), fa.name);
+					if('*' != cPath[strlen(cPath) - 1])
+						_stprintf(cPath, _T("%s\\%s"),cPath, fa.name);
+					else
+						_stprintf(cPath, _T("%.*s\\%s"),strlen(cPath) - strlen("\\*.*"), fa.name);
 					getdir(cPath, path);
+					memset(&cPath[strlen(cPath) - stlen(fa.name) - 1], 0, strlen(cPath) - strlen(fa.name));
 				}
 			}
 			else{
