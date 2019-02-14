@@ -154,7 +154,7 @@ void getdir(const char *root, std::vector<search_infor>&path){
 					if('*' != cPath[strlen(cPath) - 1])
 						_stprintf(cPath, _T("%s\\%s"),cPath, fa.name);
 					else
-						_stprintf(cPath, _T("%.*s\\%s"),strlen(cPath) - strlen("\\*.*"), fa.name);
+						_stprintf(cPath, _T("%.*s\\%s"),strlen(cPath) - strlen("\\*.*"), cPath, fa.name);
 					getdir(cPath, path);
 					memset(&cPath[strlen(cPath) - strlen(fa.name) - 1], 0, strlen(cPath) - strlen(fa.name));
 				}
