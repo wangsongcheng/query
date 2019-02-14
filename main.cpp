@@ -160,7 +160,7 @@ void getdir(const char *root, std::vector<search_infor>&path){
 				}
 			}
 			else{
-				std::string name(fa->name);
+				std::string name(fa.name);
 				infor.sfname.push_back(name);
 			}
 		} while (!_tfindnext(fHandle, &fa));
