@@ -1,3 +1,6 @@
+#if _MSC_VER >= 1800
+#define _CRT_SECURE_NO_WARNINGS
+#endif
 #include <string>
 #include <stdio.h>
 #include <stdlib.h>
@@ -5,15 +8,18 @@
 #ifdef __linux
 #include <dirent.h>
 #endif
-#ifdef WINVER
+#ifdef WIN32
+#include <io.h>
+#include <tchar.h>
 #include <windows.h>
 #endif
 #include <iostream>
 #include <vector>
-#include <string>
+#ifdef __linux
 #define MAXPATH 360
 #define MAXBYTE 0xff
 #define INVALID_VAL -1
+#endif
 struct search_infor{
 	char spath[MAXBYTE];//search path
 	std::vector<std::string> sfname;//search file name
@@ -45,8 +51,8 @@ int main(int argc, char *argv[]){
 //	char szSearch[MAXBYTE] = {0};
 //	char filename[MAXBYTE] = {0};
 	int fun_index = INVALID_VAL;
-	char sstr[MAXBYTE];//search string
-	char sfName[MAXBYTE];//search file name
+	char sstr[MAXBYTE] = {0};//search string
+	char sfName[MAXBYTE] = {0};//search file name
 	char rootdirectory[MAXPATH] = {0};
 	std::vector<search_infor>path;
 	void (*fun[])(const char *content, const char *lpstr, std::vector<std::string>&str) = {
@@ -60,7 +66,15 @@ int main(int argc, char *argv[]){
 	//if user specified file name and directory then user that file name and that directory search
 	//so should know user have specify directory or file name
 	if(!get_val_in_line(argc, argv, "-d", rootdirectory)){
+#if __linux
 		strcpy(rootdirectory, "/usr/include");
+#endif
+#if WIN32
+		char *env = getenv("include");
+		if(env){
+			strcpy(rootdirectory, env);
+		}
+#endif
 	}
 	for(int i = 0; i < sizeof(option) / sizeof(char *); i++){
 		if(get_val_in_line(argc, argv, option[i], sstr)){
@@ -115,32 +129,34 @@ void getdir(const char *root, std::vector<search_infor>&path){
 	}
 	closedir(d);
 #endif
-#ifdef WINVER
-//	long fHandle = 0;
-//	struct _finddata_t fa = {0};
-	WIN32_FIND_DATA FindFileData;
-	if(infor.spath[strlen(infor.spath) - 1] == '\\')
-		strcat(infor.spath, "*.*");
+#ifdef WIN32
+	long fHandle = 0;
+	struct _tfinddata_t fa = { 0 };
+	TCHAR cPath[MAX_PATH] = { 0 };
+	if('\\' == root[strlen(root) - 1])
+		_stprintf(cPath, _T("%s*.*"), root);
 	else
-		strcat(infor.spath, "\\*.*");
-	HANDLE hFind = FindFirstFile(infor.spath, &FindFileData);
-	if(INVALID_HANDLE == hFind){
-		perror("FindFirstFile error");
-		printf("path is %s\n", infor.spath);
-		return 0;
+		_stprintf(cPath, _T("%s\\*.*"), root);
+	fHandle = _tfindfirst(cPath, &fa);
+	if (-1 == fHandle) {
+		_tperror(_T("findfirst error"));
+		_tprintf(_T("path is %s\n"), cPath);
+		return 1;
 	}
-	else{
-		do{
-			if(FindFileData.dwFileAttributes == FILE_ATTRIBUTE_DIRECTORY){
-				char szPath[MAXPATH] = {0};
-				sprintf(szPath, "%.*s\\%s", strlen(infor.spath) - strlen("\\*.*"), infor.spath, FindFileData.cFileName);
-				getdir(szPath, path);
+	else {
+		do {
+			if (_A_SUBDIR == fa.attrib) {
+				//目录
+				if (_tcscmp(fa.name, _T(".")) && _tcscmp(fa.name, _T(".."))) {
+					_stprintf(cPath, _T("%.*s%s"),strlen(cPath) - strlen("*.*"), fa.name);
+					getdir(cPath, path);
+				}
 			}
 			else{
-				std::string name(FindFileData.cFileName);
-				infor.sfname.push_back(name);			
+				std::string name(fa->name);
+				infor.sfname.push_back(name);
 			}
-		}while(!_findnext(fHandle, &fa));
+		} while (!_tfindnext(fHandle, &fa));
 	}
 #endif
 	path.push_back(infor);
