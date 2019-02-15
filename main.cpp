@@ -124,7 +124,6 @@ int main(int argc, char *argv[]){
 	for(int i = 0; i < path.size(); i++){
 		total_file += path[i].sfname.size();
 	}
-
 	std::cout << "total file:" << total_file << ",get directory time:" << getdir_totaltime << ",search file time:" << search_totaltime << std::endl;
 	return 0;
 }
@@ -241,7 +240,7 @@ bool isFun(char *lpstr){
 	char *p = lpstr;
 	bool isfun = false;
 	p = movepointer(p, '\n', true);p++;
-	if('#' != *p && (' ' == *(lpstr - 1) || '\t' == *(lpstr - 1))){
+	if('#' != *p && (' ' == *(lpstr - 1) || '\t' == *(lpstr - 1) || '*' == *(lpstr - 1) || '&' == *(lpstr - 1))){
 		p = strchr(lpstr, '\n');
 		if(p){
 			*p = 0;
