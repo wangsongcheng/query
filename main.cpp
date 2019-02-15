@@ -193,7 +193,7 @@ void search(const char *cPath, const char *filename, const char *lpstr, void(*fu
 	fun(content, lpstr, str);
 	int line;
 	char *lpStart = 0;//show line
-	if(!str.empty())
+	if(!str.empty()){
 #if __linux
 		printf("\e[32m%s\e[0m\n", szPath);
 #endif
@@ -202,6 +202,7 @@ void search(const char *cPath, const char *filename, const char *lpstr, void(*fu
 		printf("%s\n", szPath);
 		SetTextColor(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 #endif
+	}
 	for(int i = 0; i < str.size(); i++){
 		lpStart = strstr(content, str[i].c_str());
 		char ch = *(lpStart - 1);
