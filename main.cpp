@@ -41,6 +41,9 @@ void search_fun(const char *content, const char *lpstr, std::vector<std::string>
 void search_macro(const char *content, const char *lpstr, std::vector<std::string>&str);
 void search_struct(const char *content, const char *lpstr, std::vector<std::string>&str);
 void search_type_define(const char *content, const char *lpstr, std::vector<std::string>&str);
+#ifdef WIN32
+void SetTextColor(WORD color);
+#endif
 bool str_sep(char *lpstr, char *_str, const char *search);
 //char *strrpc(char *str,char *oldstr,char *newstr);
 int main(int argc, char *argv[]){
@@ -190,7 +193,15 @@ void search(const char *cPath, const char *filename, const char *lpstr, void(*fu
 	fun(content, lpstr, str);
 	int line;
 	char *lpStart = 0;//show line
-	if(!str.empty())printf("\e[32m%s\e[0m\n", szPath);
+	if(!str.empty())
+#if __linux
+		printf("\e[32m%s\e[0m\n", szPath);
+#endif
+#if WIN32
+		SetTextColor(FOREGROUND_GREEN);
+		printf("%s\n", szPath);
+		SetTextColor(FOREGROUND_WHITE);
+#endif
 	for(int i = 0; i < str.size(); i++){
 		lpStart = strstr(content, str[i].c_str());
 		char ch = *(lpStart - 1);
@@ -353,6 +364,12 @@ void search_type_define(const char *content, const char *lpstr, std::vector<std:
 	}
 	delete[]Buff;
 }
+#ifdef WIN32
+void SetTextColor(WORD color){
+	HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE);
+	SetConsoleTextAttribute(hout, color);
+}
+#endif
 bool get_val_in_line(int argc, char *argv[], const char*lpsstr, char *lpstr){
 	int index = get_index_in_line(argc, argv, lpsstr);
 	if(INVALID_VAL != index && argv[index + 1]){
