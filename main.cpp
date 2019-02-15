@@ -1,6 +1,7 @@
 #if _MSC_VER >= 1800
 #define _CRT_SECURE_NO_WARNINGS
 #endif
+#include <time.h>
 #include <string>
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,12 +48,12 @@ void SetTextColor(WORD color);
 bool str_sep(char *lpstr, char *_str, const char *search);
 //char *strrpc(char *str,char *oldstr,char *newstr);
 int main(int argc, char *argv[]){
+	double getdir_totaltime, search_totaltime;
+	clock_t getdir_start, getdir_finish, search_file_start, search_file_finish;//time count
 	if(isInvalid(argc, argv)){
 		help();
 		return -1;
 	}
-//	char szSearch[MAXBYTE] = {0};
-//	char filename[MAXBYTE] = {0};
 	int fun_index = INVALID_VAL;
 	char sstr[MAXBYTE] = {0};//search string
 	char sfName[MAXBYTE] = {0};//search file name
@@ -94,16 +95,37 @@ int main(int argc, char *argv[]){
 	}
 	get_val_in_line(argc, argv, "-n", sfName);
 	if(strcmp(sfName, "")){
+		search_file_start = clock();
 		search(rootdirectory, sfName, sstr,fun[fun_index]);
+		search_file_finish = clock();
+		search_totaltime = (double)(search_file_finish - search_file_start) / CLOCKS_PER_SEC;
 	}
 	else{
 		//获得路径,然后搜索
+		getdir_start = clock();
+
 		getdir(rootdirectory, path);
+
+		getdir_finish = clock();
+		getdir_totaltime = (double)(getdir_finish - getdir_start) / CLOCKS_PER_SEC;
+
+		search_file_start = clock();
+
 		for(int i = 0; i < path.size(); i++){
 			for(int j = 0; j < path[i].sfname.size(); j++)
 				search(path[i].spath, path[i].sfname[j].c_str(), sstr, fun[fun_index]);
 		}
+
+		search_file_finish = clock();
+		search_totaltime = (double)(search_file_finish - search_file_start) / CLOCKS_PER_SEC;
    	}
+	int total_file = 0;
+	//get file number
+	for(int i = 0; i < path.size(); i++){
+		total_file += path[i].sfname.size();
+	}
+
+	std::cout << "total file:" << total_file << ",get directory time:" << getdir_totaltime << ",search file time:" << search_totaltime << std::endl;
 	return 0;
 }
 void getdir(const char *root, std::vector<search_infor>&path){
