@@ -200,7 +200,7 @@ void search(const char *cPath, const char *filename, const char *lpstr, void(*fu
 #if WIN32
 		SetTextColor(FOREGROUND_GREEN);
 		printf("%s\n", szPath);
-		SetTextColor(FOREGROUND_WHITE);
+		SetTextColor(0);
 #endif
 	for(int i = 0; i < str.size(); i++){
 		lpStart = strstr(content, str[i].c_str());
