@@ -83,12 +83,14 @@ int main(int argc, char *argv[]){
 		}
 #endif
 	}
+	//获得-f或者其他选项后面的内容(除了-d,-n),顺便得到需要执行的index
 	for(int i = 0; i < sizeof(option) / sizeof(char *) - 2; i++){
 		if(get_val_in_line(argc, argv, option[i], sstr)){
 			fun_index = i;
 			break;
 		}
 	}
+	//----
 	if(!strcmp(sstr, "")){
 		printf("no specified string to search\n");
 		return -1;
