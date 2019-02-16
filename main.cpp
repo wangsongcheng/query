@@ -83,7 +83,7 @@ int main(int argc, char *argv[]){
 		}
 #endif
 	}
-	for(int i = 0; i < sizeof(option) / sizeof(char *); i++){
+	for(int i = 0; i < sizeof(option) / sizeof(char *) - 2; i++){
 		if(get_val_in_line(argc, argv, option[i], sstr)){
 			fun_index = i;
 			break;
@@ -239,8 +239,10 @@ bool isFun(char *lpstr){
 //	what is function? before have ' ' after have '('
 	char *p = lpstr;
 	bool isfun = false;
+	char front = *(lpstr - 1);
 	p = movepointer(p, '\n', true);p++;
 	if('#' != *p && (' ' == *(lpstr - 1) || '\t' == *(lpstr - 1) || '*' == *(lpstr - 1) || '&' == *(lpstr - 1))){
+//	if('#' != *p && !((front >= 'a' && front <= 'z') || (front >= 'A' && front <= 'Z'))){
 		p = strchr(lpstr, '\n');
 		if(p){
 			*p = 0;
