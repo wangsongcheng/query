@@ -51,6 +51,7 @@ int main(int argc, char *argv[]){
 	double getdir_totaltime, search_totaltime;
 	clock_t getdir_start, getdir_finish, search_file_start, search_file_finish;//time count
 	if(isInvalid(argc, argv)){
+		printf("parameter insufficient:\n");
 		help();
 		return -1;
 	}
@@ -217,10 +218,10 @@ void search(const char *cPath, const char *filename, const char *lpstr, void(*fu
 	int line;
 	char *lpStart = 0;//show line
 	if(!str.empty()){
-#if __linux
+#ifdef __linux
 		printf("\e[32m%s\e[0m\n", szPath);
 #endif
-#if WIN32
+#ifdef WIN32
 		SetTextColor(FOREGROUND_GREEN);
 		printf("%s\n", szPath);
 		SetTextColor(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
@@ -276,7 +277,7 @@ void search_fun(const char *content, const char *lpstr, std::vector<std::string>
 	while((lpStart = strstr(lpStart, lpstr))){
 		//---判断找到的字符串是否是函数
 //		printf("%.*s\n", 50, lpStart);
-		if(isFun(lpStart)){
+		if(strchr(lpstr, '(') || isFun(lpStart)){
 			lpStart = movepointer(lpStart, '\n', true);lpStart++;
 			if(lpStart){
 				char buff[MAXBYTE] = {0};
@@ -404,8 +405,8 @@ bool get_val_in_line(int argc, char *argv[], const char*lpsstr, char *lpstr){
 	return false;
 }
 void help(){
-	printf("parameter insufficient:\n");
-	printf("format:[option] string [option][string]...\n");
+	printf("example:query -f strcpy\n");
+	printf("format:option string [option][string]...\n");
 	printf("option:\n");
 	printf("\t'-m' indicate search macro\n");
 	printf("\t'-f' indicate search function\n");
