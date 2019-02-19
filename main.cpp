@@ -1,6 +1,7 @@
 #if _MSC_VER >= 1800
 #define _CRT_SECURE_NO_WARNINGS
 #endif
+//#include <regex>
 #include <time.h>
 #include <string>
 #include <stdio.h>
@@ -127,7 +128,9 @@ int main(int argc, char *argv[]){
 	for(int i = 0; i < path.size(); i++){
 		total_file += path[i].sfname.size();
 	}
-	std::cout << "total file:" << total_file << ",get directory time:" << getdir_totaltime << ",search file time:" << search_totaltime << std::endl;
+	std::cout << "-----------------------------" << std::endl;
+	std::cout << "search path:" << rootdirectory << std::endl;
+	std::cout << "total file:" << total_file << ";get directory time:" << getdir_totaltime << ";search file time:" << search_totaltime << std::endl;
 	return 0;
 }
 void getdir(const char *root, std::vector<search_infor>&path){
