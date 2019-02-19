@@ -1,7 +1,7 @@
 #if _MSC_VER >= 1800
 #define _CRT_SECURE_NO_WARNINGS
 #endif
-//#include <regex>
+#include <regex>
 #include <time.h>
 #include <string>
 #include <stdio.h>
@@ -242,22 +242,17 @@ void search(const char *cPath, const char *filename, const char *lpstr, void(*fu
 	str.clear();
 }
 bool isFun(char *lpstr){
-//	what is function? before have ' ' after have '('
-	char *p = lpstr;
-	bool isfun = false;
-	char front = *(lpstr - 1);
-	p = movepointer(p, '\n', true);p++;
-	if('#' != *p && (' ' == *(lpstr - 1) || '\t' == *(lpstr - 1) || '*' == *(lpstr - 1) || '&' == *(lpstr - 1))){
-//	if('#' != *p && !((front >= 'a' && front <= 'z') || (front >= 'A' && front <= 'Z'))){
-		p = strchr(lpstr, '\n');
-		if(p){
-			*p = 0;
-//			printf("lpstr = %s\n", lpstr);
-			if(strchr(lpstr, '('))isfun = true;
-			*p = '\n';
-		}
+//	what is function? before have ' ' and after have '('
+	std::regex reg("[^#].*[*]? [*]?.*[ ]?(.*);");
+	std::smatch result;
+	char *p = strchr(lpstr, '\n');
+	if(p){
+		*p = 0;
+		std::string str = lpstr;
+		*p = '\n';
+		return regex_match(str, result, reg);
 	}
-	return isfun;
+	return false;
 }
 //--前 ++后
 char *movepointer(char *p, char ch, bool bfront){
