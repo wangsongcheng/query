@@ -34,7 +34,7 @@ bool get_val_in_line(int argc, char *argv[], const char *lpsstr, char *lpstr);
 int get_index_in_line(int argc, char *argv[], const char *str);
 int linage(char *content);
 void help();
-bool isFun(char *lpstr);
+bool isFun(const char *lpstr, int str_size, const char *fun_name);
 bool isInvalid(int argc, char *argv[]);
 char *movepointer(char *p, char ch, bool bfront);
 void remove_comment(char *content);;
@@ -46,7 +46,6 @@ void search_type_define(const char *content, const char *lpstr, std::vector<std:
 #ifdef WIN32
 void SetTextColor(WORD color);
 #endif
-bool str_sep(char *lpstr, char *_str, const char *search);
 //char *strrpc(char *str,char *oldstr,char *newstr);
 int main(int argc, char *argv[]){
 	double getdir_totaltime, search_totaltime;
@@ -241,18 +240,16 @@ void search(const char *cPath, const char *filename, const char *lpstr, void(*fu
 	delete[]content;
 	str.clear();
 }
-bool isFun(char *lpstr){
+bool isFun(const char *lpstr, int str_size, const char *fun_name){
 //	what is function? before have ' ' and after have '('
-	std::regex reg("[^#].*[*]? [*]?.*[ ]?(.*);");
+	char lpReg[100] = {0};
+	sprintf(lpReg, "[^#/].*[*&]? [*&]?%s.*[ ]?(.*)[;]?", fun_name);
+	std::regex reg(lpReg);
+	//std::regex reg("[^#].*[*]? [*]?.*[ ]?(.*)[;]?");
 	std::smatch result;
-	char *p = strchr(lpstr, '\n');
-	if(p){
-		*p = 0;
-		std::string str = lpstr;
-		*p = '\n';
-		return regex_match(str, result, reg);
-	}
-	return false;
+	//first parameter type can't 'const char *'
+	std::string str(lpstr, str_size);
+	return regex_match(str, result, reg);
 }
 //--前 ++后
 char *movepointer(char *p, char ch, bool bfront){
@@ -275,31 +272,15 @@ void search_fun(const char *content, const char *lpstr, std::vector<std::string>
 	while((lpStart = strstr(lpStart, lpstr))){
 		//---判断找到的字符串是否是函数
 //		printf("%.*s\n", 50, lpStart);
-		if(strchr(lpstr, '(') || isFun(lpStart)){
-			lpStart = movepointer(lpStart, '\n', true);lpStart++;
-			if(lpStart){
-				char buff[MAXBYTE] = {0};
-				if(str_sep(lpStart, buff, "\n")){
-					std::string _str(buff);
-					str.push_back(_str);
-				}
-				else{
-					printf("str_sep return null\n");
-				}
-			}
+		lpStart = movepointer(lpStart, '\n', true);lpStart++;
+		int len = strcspn(lpStart, "\n");
+		if(lpStart > content && (strchr(lpstr, '(') || isFun(lpStart, len, lpstr))){
+			std::string _str(lpStart, len);
+			str.push_back(_str);
 		}
 		lpStart = strchr(lpStart, '\n');
 	}
 	delete[]Buff;
-}
-bool str_sep(char *lpstr, char *_str, const char *search){
-	if(!lpstr || !_str || !search)return false;
-	char *str = strstr(lpstr, search);
-	if(!str)return false;
-	*str = 0;
-	strcpy(_str, lpstr);
-	*str = search[0];
-	return true;
 }
 void search_macro(const char *content, const char *lpstr, std::vector<std::string>&str){
 	int count = strlen(content);
