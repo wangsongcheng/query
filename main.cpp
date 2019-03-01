@@ -32,11 +32,11 @@ int getfilelen(FILE *fp);
 void getdir(const char *root, std::vector<search_infor>&path);
 bool get_val_in_line(int argc, char *argv[], const char *lpsstr, char *lpstr);
 int get_index_in_line(int argc, char *argv[], const char *str);
-int linage(char *content);
+int linage(const char *content);
 void help();
 bool isFun(const char *lpstr, int str_size, const char *fun_name);
 bool isInvalid(int argc, char *argv[]);
-char *movepointer(char *p, char ch, bool bfront);
+const char *movepointer(const char *p, char ch, bool bfront);
 void remove_comment(char *content);;
 void search(const char *cPath, const char *filename, const char *lpstr, void(*fun)(const char *content, const char *lpstr, std::vector<std::string>&str));
 void search_fun(const char *content, const char *lpstr, std::vector<std::string>&str);
@@ -48,7 +48,7 @@ void SetTextColor(WORD color);
 #endif
 //char *strrpc(char *str,char *oldstr,char *newstr);
 int main(int argc, char *argv[]){
-	double getdir_totaltime, search_totaltime;
+	double getdir_totaltime = 0.0f, search_totaltime = 0.0f;
 	clock_t getdir_start, getdir_finish, search_file_start, search_file_finish;//time count
 	if(isInvalid(argc, argv)){
 		printf("parameter insufficient:\n");
@@ -154,8 +154,7 @@ void getdir(const char *root, std::vector<search_infor>&path){
 				getdir(szPath, path);
 			}
 			else{
-				std::string name(file->d_name);
-				infor.sfname.push_back(name);
+				infor.sfname.push_back(file->d_name);
 			}
 		}
 	}
@@ -189,8 +188,7 @@ void getdir(const char *root, std::vector<search_infor>&path){
 				}
 			}
 			else{
-				std::string name(fa.name);
-				infor.sfname.push_back(name);
+				infor.sfname.push_back(fa.name);
 			}
 		} while (!_tfindnext(fHandle, &fa));
 	}
@@ -231,10 +229,7 @@ void search(const char *cPath, const char *filename, const char *lpstr, void(*fu
 	}
 	for(int i = 0; i < str.size(); i++){
 		lpStart = strstr(content, str[i].c_str());
-		char ch = *(lpStart - 1);
-		*(lpStart - 1) = 0;
-		line = linage(content);
-		*(lpStart - 1) = ch;
+		line = linage(content) - linage(lpStart) + 1;
 		printf("%d:%s\n",line, str[i].c_str());
 	}
 	delete[]content;
@@ -243,16 +238,14 @@ void search(const char *cPath, const char *filename, const char *lpstr, void(*fu
 bool isFun(const char *lpstr, int str_size, const char *fun_name){
 //	what is function? before have ' ' and after have '('
 	char lpReg[100] = {0};
-	sprintf(lpReg, "[^#/].*[*&]? [*&]?%s.*[ ]?(.*)[;]?", fun_name);
+	sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*)[;]?", fun_name);
 	std::regex reg(lpReg);
-	//std::regex reg("[^#].*[*]? [*]?.*[ ]?(.*)[;]?");
 	std::smatch result;
-	//first parameter type can't 'const char *'
 	std::string str(lpstr, str_size);
 	return regex_match(str, result, reg);
 }
 //--前 ++后
-char *movepointer(char *p, char ch, bool bfront){
+const char *movepointer(const char *p, char ch, bool bfront){
 	if (!p)return nullptr;
 	if (bfront) {
 		while (*p && *p != ch && p--);
@@ -263,16 +256,13 @@ char *movepointer(char *p, char ch, bool bfront){
 	return p;
 }
 void search_fun(const char *content, const char *lpstr, std::vector<std::string>&str){
-	int count = strlen(content);
-	char *Buff = new char[count + 1];
-	memset(Buff, 0, count + 1);
-	strcpy(Buff, content);
 //-------
-	char *lpStart = Buff;
+	const char *lpStart = content;
 	while((lpStart = strstr(lpStart, lpstr))){
 		//---判断找到的字符串是否是函数
 //		printf("%.*s\n", 50, lpStart);
 		lpStart = movepointer(lpStart, '\n', true);lpStart++;
+//		int len = strcspn(lpStart, ";");
 		int len = strcspn(lpStart, "\n");
 		if(lpStart > content && (strchr(lpstr, '(') || isFun(lpStart, len, lpstr))){
 			std::string _str(lpStart, len);
@@ -280,74 +270,59 @@ void search_fun(const char *content, const char *lpstr, std::vector<std::string>
 		}
 		lpStart = strchr(lpStart, '\n');
 	}
-	delete[]Buff;
 }
 void search_macro(const char *content, const char *lpstr, std::vector<std::string>&str){
-	int count = strlen(content);
-	char *Buff = new char[count + 1];
-	memset(Buff, 0, count + 1);
-	strcpy(Buff, content);
-	char *lpStart = Buff;
+	const char *lpStart = content;
 	while((lpStart = strstr(lpStart, lpstr))){
-		char *p = lpStart - strlen("#define ");
-		if(!memcmp(p, "#define ", strlen("#define "))){
-			lpStart = p;
-			p = strchr(lpStart, '\n');
-			if(p && lpStart){
-				if('\\' == *(p - 1)){
-					do{
-						p++;
-						p = strchr(lpStart, '\n');
-						if(!p)break;
-					}while('\\' == *(p - 1));
-				}
-				if(p){
-					*p = 0;
-					std::string buff(lpStart);
-					str.push_back(buff);		
-				}
+		lpStart -= strlen("#define ");
+		if(!memcmp(lpStart, "#define ", strlen("#define "))){
+			int len = strcspn(lpStart, "\n");
+			if('\\' == *(lpStart + len - 1)){
+				do{
+					len += strcspn(lpStart, "\n");
+				}while('\\' == *(lpStart + len - 1));
 			}
+			std::string buff(lpStart, len);
+			str.push_back(buff);
 		}
 		lpStart += strlen(lpstr) + strlen("#define ");
 	}
-	delete[]Buff;
 }
 void search_struct(const char *content, const char *lpstr, std::vector<std::string>&str){
 //just search struct name;no search struct alias name
-	int count = strlen(content);
-	char *Buff = new char[count + 1];
-	memset(Buff, 0, count + 1);
-	strcpy(Buff, content);
-	char *lpStart = Buff;
-	while((lpStart = strstr(lpStart, lpstr))){
-		char *p = lpStart - strlen("struct ");
-		if(!memcmp(p, "struct ", strlen("struct "))){
-			p -= strlen("typedef ");
-			if(memcmp(p, "typedef ", strlen("typedef")))p += strlen("typedef");
-			lpStart = p;
-			p = strchr(lpStart, '\n');
-			if(p && ';' != *(p - 1)){
-				int count = 1;
-				p = strchr(lpStart, '{');
-				if(p){
-					do{
-						p++;
-						if(*p == '{')count++;
-						if(*p == '}')count--;
-						if(!p)break;
-					}while(count);
-					p = strchr(p, '\n');
-				}
-			}
-			if(p){
-				*p = 0;
-				std::string buff(lpStart);
-				str.push_back(buff);
-			}
-		}
-		lpStart += strlen(lpstr) + strlen("struct ") + strlen("typedef");
-	}
-	delete[]Buff;
+//	int count = strlen(content);
+//	char *Buff = new char[count + 1];
+//	memset(Buff, 0, count + 1);
+//	strcpy(Buff, content);
+//	const char *lpStart = Buff;
+//	while((lpStart = strstr(lpStart, lpstr))){
+//		lpStart -= strlen("struct ");
+//		if(!memcmp(lpStart, "struct ", strlen("struct "))){
+//			lpStart = strlen("typedef ");
+//			if(memcmp(lpStart, "typedef ", strlen("typedef")))lpStart += strlen("typedef");
+//			p = strchr(lpStart, '\n');
+//			if(p && ';' != *(p - 1)){
+//				int count = 1;
+//				p = strchr(lpStart, '{');
+//				if(p){
+//					do{
+//						p++;
+//						if(*p == '{')count++;
+//						if(*p == '}')count--;
+//						if(!p)break;
+//					}while(count);
+//					p = strchr(p, '\n');
+//				}
+//			}
+//			if(p){
+//				*p = 0;
+//				std::string buff(lpStart);
+//				str.push_back(buff);
+//			}
+//		}
+//		lpStart += strlen(lpstr) + strlen("struct ") + strlen("typedef");
+//	}
+//	delete[]Buff;
 }
 void search_type_define(const char *content, const char *lpstr, std::vector<std::string>&str){
 	int count = strlen(content);
@@ -456,9 +431,9 @@ void remove_comment(char *content){
 		lpStart++;
 	}
 }
-int linage(char *content){
+int linage(const char *content){
 	int line = 1;
-	char *lpStart = content;
+	const char *lpStart = content;
 	while((lpStart = strchr(lpStart, '\n')) && ++line && ++lpStart);
 	return line;
 }
