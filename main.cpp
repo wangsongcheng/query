@@ -1,4 +1,4 @@
-#if _MSC_VER >= 1800
+﻿#if _MSC_VER >= 1800
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 #include <regex>
@@ -238,7 +238,7 @@ void search(const char *cPath, const char *filename, const char *lpstr, void(*fu
 bool isFun(const char *lpstr, int str_size, const char *fun_name){
 //	what is function? before have ' ' and after have '('
 	char lpReg[100] = {0};
-	sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*)[;]?", fun_name);
+	sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*)?[;]?[\r]?", fun_name);
 	std::regex reg(lpReg);
 	std::smatch result;
 	std::string str(lpstr, str_size);
