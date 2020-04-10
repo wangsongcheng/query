@@ -299,8 +299,8 @@ void search_struct(const char *content, const char *lpstr, std::vector<std::stri
 	while((lpStart = strstr(lpStart, lpstr))){
 		lpStart -= strlen("struct ");
 		if(!memcmp(lpStart, "struct ", strlen("struct "))){
-			lpStart = strlen("typedef ");
-			if(memcmp(lpStart, "typedef ", strlen("typedef")))lpStart += strlen("typedef");
+			lpStart -= strlen("typedef ");
+			if(memcmp(lpStart, "typedef ", strlen("typedef")))lpStart += strlen("typedef ");
 			p = strchr(lpStart, '\n');
 			if(p && ';' != *(p - 1)){
 				int count = 1;
