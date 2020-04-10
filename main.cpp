@@ -290,39 +290,40 @@ void search_macro(const char *content, const char *lpstr, std::vector<std::strin
 }
 void search_struct(const char *content, const char *lpstr, std::vector<std::string>&str){
 //just search struct name;no search struct alias name
-//	int count = strlen(content);
-//	char *Buff = new char[count + 1];
-//	memset(Buff, 0, count + 1);
-//	strcpy(Buff, content);
-//	const char *lpStart = Buff;
-//	while((lpStart = strstr(lpStart, lpstr))){
-//		lpStart -= strlen("struct ");
-//		if(!memcmp(lpStart, "struct ", strlen("struct "))){
-//			lpStart = strlen("typedef ");
-//			if(memcmp(lpStart, "typedef ", strlen("typedef")))lpStart += strlen("typedef");
-//			p = strchr(lpStart, '\n');
-//			if(p && ';' != *(p - 1)){
-//				int count = 1;
-//				p = strchr(lpStart, '{');
-//				if(p){
-//					do{
-//						p++;
-//						if(*p == '{')count++;
-//						if(*p == '}')count--;
-//						if(!p)break;
-//					}while(count);
-//					p = strchr(p, '\n');
-//				}
-//			}
-//			if(p){
-//				*p = 0;
-//				std::string buff(lpStart);
-//				str.push_back(buff);
-//			}
-//		}
-//		lpStart += strlen(lpstr) + strlen("struct ") + strlen("typedef");
-//	}
-//	delete[]Buff;
+	int count = strlen(content);
+	char *Buff = new char[count + 1];
+	memset(Buff, 0, count + 1);
+	strcpy(Buff, content);
+	char *p = nullptr;
+	char *lpStart = Buff;
+	while((lpStart = strstr(lpStart, lpstr))){
+		lpStart -= strlen("struct ");
+		if(!memcmp(lpStart, "struct ", strlen("struct "))){
+			lpStart = strlen("typedef ");
+			if(memcmp(lpStart, "typedef ", strlen("typedef")))lpStart += strlen("typedef");
+			p = strchr(lpStart, '\n');
+			if(p && ';' != *(p - 1)){
+				int count = 1;
+				p = strchr(lpStart, '{');
+				if(p){
+					do{
+						p++;
+						if(*p == '{')count++;
+						if(*p == '}')count--;
+						if(!p)break;
+					}while(count);
+					p = strchr(p, '\n');
+				}
+			}
+			if(p){
+				*p = 0;
+				std::string buff(lpStart);
+				str.push_back(buff);
+			}
+		}
+		lpStart += strlen(lpstr) + strlen("struct ") + strlen("typedef");
+	}
+	delete[]Buff;
 }
 void search_type_define(const char *content, const char *lpstr, std::vector<std::string>&str){
 	int count = strlen(content);
