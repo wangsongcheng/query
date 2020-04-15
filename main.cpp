@@ -250,15 +250,33 @@ void search(const char *cPath, const char *filename, const char *lpstr, void(*fu
 	str.clear();
 }
 bool isFun(const char *lpstr, int str_size, const char *fun_name){
-//	what is function? before have ' ' and after have '('
+	bool bIsFun = false;
+	char *buffer = new char[str_size + 1];
+	memcpy(buffer, lpstr, str_size);
+	buffer[str_size] = 0;
+	if(strchr(buffer, '(')){
+		char *p = strstr(buffer, fun_name) + strlen(fun_name);
+		for(; *p && *p != '('; ++p){
+			if(*p != ' ' && !isalpha(*p)){
+				bIsFun = false;
+				break;
+			}
+		}
+		if(*p == '(')bIsFun = true;
+	}
+	delete[]buffer;
+	return bIsFun;
+/*
 	char lpReg[100] = {0};
 	sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*)?[;]?[\r]?", fun_name);
 	std::regex reg(lpReg);
 	std::smatch result;
 	std::string str(lpstr, str_size);
 	return regex_match(str, result, reg);
+*/
 }
 //--前 ++后
+/*{{{*/
 const char *movepointer(const char *p, char ch, bool bfront){
 	if (!p)return nullptr;
 	if (bfront) {
@@ -269,6 +287,7 @@ const char *movepointer(const char *p, char ch, bool bfront){
 	}
 	return p;
 }
+/*}}}*/
 void search_fun(const char *content, const char *lpstr, std::vector<std::string>&str){
 //-------
 	const char *lpStart = content;
@@ -276,10 +295,10 @@ void search_fun(const char *content, const char *lpstr, std::vector<std::string>
 		//---判断找到的字符串是否是函数
 //		printf("%.*s\n", 50, lpStart);
 		lpStart = movepointer(lpStart, '\n', true);lpStart++;
-//		int len = strcspn(lpStart, ";");
-		int len = strcspn(lpStart, "\n");
-		if(lpStart > content && (strchr(lpstr, '(') || isFun(lpStart, len, lpstr))){
-			std::string _str(lpStart, len);
+		int len = strcspn(lpStart, ");");
+//		int len = strcspn(lpStart, "\n");
+		if(strchr(lpstr, '(') || isFun(lpStart, len + 2, lpstr)){
+			std::string _str(lpStart, len + 2);
 			str.push_back(_str);
 		}
 		lpStart = strchr(lpStart, '\n');
