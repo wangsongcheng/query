@@ -21,12 +21,18 @@
 #define MAXBYTE 0xff
 #define MAX_PATH 360
 #endif
-#define INVALID_VAL -1
+enum Search_Type{
+	INVALID_VAL = -1,
+	searchFun = 0,
+	searchMacro,
+	searchStruct,
+	searchTypeDefine,
+	searchEnum
+};
 struct search_infor{
 	char spath[MAXBYTE];//search path
 	std::vector<std::string> sfname;//search file name
 };
-const char *option[] = { "-f", "-m", "-s", "-t", "-d", "-n"};
 //bool g_bFun;
 int getfilelen(FILE *fp);
 void getdir(const char *root, std::vector<search_infor>&path);
@@ -35,9 +41,9 @@ int get_index_in_line(int argc, char *argv[], const char *str);
 int linage(const char *content);
 void help();
 bool isFun(const char *lpstr, int str_size, const char *fun_name);
-bool isInvalid(int argc, char *argv[]);
+bool isInvalid(int argc, char *argv[], const char *const*option, int count);
 const char *movepointer(const char *p, char ch, bool bfront);
-void remove_comment(char *content);;
+void remove_comment(char *content);
 void search(const char *cPath, const char *filename, const char *lpstr, void(*fun)(const char *content, const char *lpstr, std::vector<std::string>&str));
 void search_fun(const char *content, const char *lpstr, std::vector<std::string>&str);
 void search_macro(const char *content, const char *lpstr, std::vector<std::string>&str);
@@ -46,25 +52,28 @@ void search_type_define(const char *content, const char *lpstr, std::vector<std:
 #ifdef WIN32
 void SetTextColor(WORD color);
 #endif
+std::string searchStructString = "struct ";
 //char *strrpc(char *str,char *oldstr,char *newstr);
 int main(int argc, char *argv[]){
 	double getdir_totaltime = 0.0f, search_totaltime = 0.0f;
 	clock_t getdir_start, getdir_finish, search_file_start, search_file_finish;//time count
-	if(isInvalid(argc, argv)){
+	const char *option[] = { "-f", "-m", "-s", "-t", "-e", "-d", "-n"};
+	if(isInvalid(argc, argv, option, 6)){
 		printf("parameter insufficient:\n");
 		help();
 		return -1;
 	}
-	int fun_index = INVALID_VAL;
 	char sstr[MAXBYTE] = {0};//search string
 	char sfName[MAXBYTE] = {0};//search file name
-	char rootdirectory[MAX_PATH] = {0};
 	std::vector<search_infor>path;
+	char rootdirectory[MAX_PATH] = {0};
+	Search_Type fun_index = INVALID_VAL;
 	void (*fun[])(const char *content, const char *lpstr, std::vector<std::string>&str) = {
 		search_fun,
 		search_macro,
 		search_struct,
-		search_type_define
+		search_type_define,
+		search_struct
 	};
 	//if user specified file name then user default directory and that file name search
 	//if user specified file directory then user that diretory for root directory
@@ -87,7 +96,7 @@ int main(int argc, char *argv[]){
 	//获得-f或者其他选项后面的内容(除了-d,-n),顺便得到需要执行的index
 	for(int i = 0; i < sizeof(option) / sizeof(char *) - 2; i++){
 		if(get_val_in_line(argc, argv, option[i], sstr)){
-			fun_index = i;
+			fun_index = (Search_Type)i;
 			break;
 		}
 	}
@@ -95,6 +104,11 @@ int main(int argc, char *argv[]){
 	if(!strcmp(sstr, "")){
 		printf("no specified string to search\n");
 		return -1;
+	}
+	if(fun_index == searchEnum){
+		if(get_val_in_line(argc, argv, "-e", sstr)){
+			searchStructString = "enum ";
+		}
 	}
 	get_val_in_line(argc, argv, "-n", sfName);
 	if(strcmp(sfName, "")){
@@ -271,23 +285,24 @@ void search_fun(const char *content, const char *lpstr, std::vector<std::string>
 		lpStart = strchr(lpStart, '\n');
 	}
 }
+/*{{{*/
 void search_macro(const char *content, const char *lpstr, std::vector<std::string>&str){
 	const char *lpStart = content;
-	while((lpStart = strstr(lpStart, lpstr))){
-		lpStart -= strlen("#define ");
-		if(!memcmp(lpStart, "#define ", strlen("#define "))){
-			int len = strcspn(lpStart, "\n");
-			if('\\' == *(lpStart + len - 1)){
-				do{
-					len += strcspn(lpStart, "\n");
-				}while('\\' == *(lpStart + len - 1));
-			}
-			std::string buff(lpStart, len);
-			str.push_back(buff);
+	char buffer[MAXBYTE] = {0};
+	sprintf(buffer, "#define %s", lpstr);
+	while((lpStart = strstr(lpStart, buffer))){
+		int len = strcspn(lpStart, "\n");
+		if('\\' == *(lpStart + len - 1)){
+			do{
+				len += strcspn(lpStart, "\n");
+			}while('\\' == *(lpStart + len - 1));
 		}
+		std::string buff(lpStart, len);
+		str.push_back(buff);
 		lpStart += strlen(lpstr) + strlen("#define ");
 	}
 }
+/*}}}*/
 void search_struct(const char *content, const char *lpstr, std::vector<std::string>&str){
 //just search struct name;no search struct alias name
 	int count = strlen(content);
@@ -296,32 +311,31 @@ void search_struct(const char *content, const char *lpstr, std::vector<std::stri
 	strcpy(Buff, content);
 	char *p = nullptr;
 	char *lpStart = Buff;
-	while((lpStart = strstr(lpStart, lpstr))){
-		lpStart -= strlen("struct ");
-		if(!memcmp(lpStart, "struct ", strlen("struct "))){
-			lpStart -= strlen("typedef ");
-			if(memcmp(lpStart, "typedef ", strlen("typedef")))lpStart += strlen("typedef ");
-			p = strchr(lpStart, '\n');
-			if(p && ';' != *(p - 1)){
-				int count = 1;
-				p = strchr(lpStart, '{');
-				if(p){
-					do{
-						p++;
-						if(*p == '{')count++;
-						if(*p == '}')count--;
-						if(!p)break;
-					}while(count);
-					p = strchr(p, '\n');
-				}
-			}
+	char buffer[MAXBYTE] = {0};
+	sprintf(buffer, "%s%s", searchStructString.c_str(), lpstr);
+	while((lpStart = strstr(lpStart, buffer))){
+		lpStart -= strlen("typedef ");
+		if(memcmp(lpStart, "typedef ", strlen("typedef")))lpStart += strlen("typedef ");
+		p = strchr(lpStart, '\n');
+		if(p && ';' != *(p - 1)){
+			int count = 1;
+			p = strchr(lpStart, '{');
 			if(p){
-				*p = 0;
-				std::string buff(lpStart);
-				str.push_back(buff);
+				do{
+					p++;
+					if(*p == '{')count++;
+					if(*p == '}')count--;
+					if(!p)break;
+				}while(count);
+				p = strchr(p, '\n');
 			}
 		}
-		lpStart += strlen(lpstr) + strlen("struct ") + strlen("typedef");
+		if(p){
+			*p = 0;
+			std::string buff(lpStart);
+			str.push_back(buff);
+		}
+		lpStart += strlen(lpstr) + searchStructString.length() + strlen("typedef");
 	}
 	delete[]Buff;
 }
@@ -331,16 +345,14 @@ void search_type_define(const char *content, const char *lpstr, std::vector<std:
 	memset(Buff, 0, count + 1);
 	strcpy(Buff, content);
 	char *lpStart = Buff;
-	while((lpStart = strstr(lpStart, lpstr))){
-		char *p = lpStart - strlen("typedef ");
-		if(!memcmp(p, "typedef ", strlen("typedef "))){
-			lpStart = p;
-			p = strchr(lpStart, '\n');
-			if(p){
-				*p = 0;
-				std::string buff(lpStart);
-				str.push_back(buff);
-			}
+	char buffer[MAXBYTE] = {0};
+	sprintf(buffer, "typedef %s", lpstr);
+	while((lpStart = strstr(lpStart, buffer))){
+		char *p = strchr(lpStart, '\n');
+		if(p){
+			*p = 0;
+			std::string buff(lpStart);
+			str.push_back(buff);
 		}
 		lpStart += strlen(lpstr) + strlen("typedef ");
 	}
@@ -363,6 +375,7 @@ void help(){
 	printf("example:query -f strcpy\n");
 	printf("format:option string [option][string]...\n");
 	printf("option:\n");
+	printf("\t'-e' indicate search enum\n");
 	printf("\t'-m' indicate search macro\n");
 	printf("\t'-f' indicate search function\n");
 	printf("\t'-s' indicate search structure\n");
@@ -370,10 +383,9 @@ void help(){
 	printf("\t'-t' indicate search type define\n");
 	printf("\t'-n' indicate search in that file;\n");
 }
-bool isInvalid(int argc, char *argv[]){
+bool isInvalid(int argc, char *argv[], const char *const*option, int count){
 	int ioption = 0;
 	if(argc < 2)return true;
-	int count = sizeof(option) / sizeof(char*);
 	for(int i = 1; i < argc; i++){
 		for(int j = 0; j < count; j++){
 			if(!strcmp(option[j], argv[i])){
