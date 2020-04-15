@@ -255,14 +255,16 @@ bool isFun(const char *lpstr, int str_size, const char *fun_name){
 	memcpy(buffer, lpstr, str_size);
 	buffer[str_size] = 0;
 	if(strchr(buffer, '(')){
-		char *p = strstr(buffer, fun_name) + strlen(fun_name);
-		for(; *p && *p != '('; ++p){
-			if(*p != ' ' && !isalpha(*p)){
-				bIsFun = false;
-				break;
+		char *p = strstr(buffer, fun_name);//不知道为什么，复制到buffer的内容居然不包含函数名。将直接跳过这样的内容
+		if(p){
+			for(p += strlen(fun_name); *p && *p != '('; ++p){
+				if(*p != ' ' && !isalpha(*p)){
+					bIsFun = false;
+					break;
+				}
 			}
+			if(*p == '(')bIsFun = true;
 		}
-		if(*p == '(')bIsFun = true;
 	}
 	delete[]buffer;
 	return bIsFun;
