@@ -27,7 +27,9 @@ enum Search_Type{
 	searchMacro,
 	searchStruct,
 	searchTypeDefine,
-	searchEnum
+	searchEnum,
+	searchClass,
+	searchNameSpace
 };
 struct search_infor{
 	char spath[MAXBYTE];//search path
@@ -57,7 +59,7 @@ std::string searchStructString = "struct ";
 int main(int argc, char *argv[]){
 	double getdir_totaltime = 0.0f, search_totaltime = 0.0f;
 	clock_t getdir_start, getdir_finish, search_file_start, search_file_finish;//time count
-	const char *option[] = { "-f", "-m", "-s", "-t", "-e", "-d", "-n"};
+	const char *option[] = { "-f", "-m", "-s", "-t", "-e", "-c", "-ns", "-d", "-n"};
 	if(isInvalid(argc, argv, option, 6)){
 		printf("parameter insufficient:\n");
 		help();
@@ -73,7 +75,6 @@ int main(int argc, char *argv[]){
 		search_macro,
 		search_struct,
 		search_type_define,
-		search_struct
 	};
 	//if user specified file name then user default directory and that file name search
 	//if user specified file directory then user that diretory for root directory
@@ -105,11 +106,21 @@ int main(int argc, char *argv[]){
 		printf("no specified string to search\n");
 		return -1;
 	}
-	if(fun_index == searchEnum){
-		if(get_val_in_line(argc, argv, "-e", sstr)){
-			searchStructString = "enum ";
-		}
+	if(fun_index > searchStruct){
+		const char *s[] = { "enum", "class", "namespace" };
+		searchStructString = s[fun_index - 4];
+		fun_index = searchStruct;//------note:
 	}
+//	char op[MAXBYTE] = { 0 };
+//	if(get_val_in_line(argc, argv, "-e", op)){
+//		searchStructString = "enum ";
+//	}
+//	else if(get_val_in_line(argc, argv, "-c", op)){
+//		searchStructString = "class";
+//	}
+//	else if(get_val_in_line(argc, argv, "-ns", op)){
+//		searchStructString = "namespace";
+//	}
 	get_val_in_line(argc, argv, "-n", sfName);
 	if(strcmp(sfName, "")){
 		search_file_start = clock();
@@ -333,7 +344,7 @@ void search_struct(const char *content, const char *lpstr, std::vector<std::stri
 	char *p = nullptr;
 	char *lpStart = Buff;
 	char buffer[MAXBYTE] = {0};
-	sprintf(buffer, "%s%s", searchStructString.c_str(), lpstr);
+	sprintf(buffer, "%s %s", searchStructString.c_str(), lpstr);
 	while((lpStart = strstr(lpStart, buffer))){
 		lpStart -= strlen("typedef ");
 		if(memcmp(lpStart, "typedef ", strlen("typedef")))lpStart += strlen("typedef ");
@@ -397,10 +408,12 @@ void help(){
 	printf("format:option string [option][string]...\n");
 	printf("option:\n");
 	printf("\t'-e' indicate search enum\n");
+	printf("\t'-c' indicate search class\n");
 	printf("\t'-m' indicate search macro\n");
 	printf("\t'-f' indicate search function\n");
 	printf("\t'-s' indicate search structure\n");
 	printf("\t'-d' indicate search directory\n");
+	printf("\t'-ns' indicate search namespace\n");
 	printf("\t'-t' indicate search type define\n");
 	printf("\t'-n' indicate search in that file;\n");
 }
