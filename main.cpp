@@ -238,6 +238,9 @@ void search(const char *cPath, const char *filename, const char *lpstr, void(*fu
 	fread(content, size, 1, fp);
 	fclose(fp);
 	//remove_comment(content);
+	if(!strcmp(filename, "vulkan_core.h")){
+		int j = 0;
+	}
 	std::vector<std::string>str;
 	fun(content, lpstr, str);
 	int line;
@@ -274,7 +277,7 @@ bool isFun(const char *lpstr, int str_size, const char *fun_name){
 					break;
 				}
 			}
-			if(*p == '(')bIsFun = true;
+			if(*p == '(' && *(p + 1) != ')')bIsFun = true;
 		}
 	}
 	delete[]buffer;
@@ -308,13 +311,18 @@ void search_fun(const char *content, const char *lpstr, std::vector<std::string>
 		//---判断找到的字符串是否是函数
 //		printf("%.*s\n", 50, lpStart);
 		lpStart = movepointer(lpStart, '\n', true);lpStart++;
-		int len = strcspn(lpStart, ");");
-//		int len = strcspn(lpStart, "\n");
-		if(strchr(lpstr, '(') || isFun(lpStart, len + 2, lpstr)){
-			std::string _str(lpStart, len + 2);
+//		int len = strcspn(lpStart, ");");
+		int len = 0;
+		int lineSize;
+		do{
+			lineSize = strcspn(lpStart + len, "\n");
+			len += lineSize;
+		}while(memchr(lpStart + len - lineSize, '\\', lineSize));
+		if(strchr(lpstr, '(') || isFun(lpStart, len + 1, lpstr)){
+			std::string _str(lpStart, len + 1);
 			str.push_back(_str);
 		}
-		lpStart = strchr(lpStart, '\n');
+		lpStart += len + 1;
 	}
 }
 /*{{{*/
