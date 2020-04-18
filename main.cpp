@@ -151,7 +151,7 @@ int main(int argc, char *argv[]){
 			struct stat s;
 			for(int i = 0; i < path.size(); i++){
 				for(int j = 0; j < path[i].sfname.size(); j++){
-					if(path[i].sfname[j] == sfName){
+					if(!memcmp(path[i].sfname[j].c_str(), sfName, strlen(sfName))){
 						stat(path[i].sfname[j].c_str(), &s);
 						std::cout << "size:" << s.st_size << ";directory:"  << path[i].spath << ";file:" << path[i].sfname[j] << std::endl; 
 					}
