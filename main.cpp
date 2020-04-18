@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #ifdef __linux
+#include <sys/stat.h>
 #include <dirent.h>
 #endif
 #ifdef WIN32
@@ -20,6 +21,7 @@
 #ifdef __linux
 #define MAXBYTE 0xff
 #define MAX_PATH 360
+#define DEFAULT_PATH "/usr/include"
 #endif
 enum Search_Type{
 	INVALID_VAL = -1,
@@ -32,7 +34,7 @@ enum Search_Type{
 	searchNameSpace
 };
 struct search_infor{
-	char spath[MAXBYTE];//search path
+	std::string spath;//search path
 	std::vector<std::string> sfname;//search file name
 };
 //bool g_bFun;
@@ -42,11 +44,12 @@ bool get_val_in_line(int argc, char *argv[], const char *lpsstr, char *lpstr);
 int get_index_in_line(int argc, char *argv[], const char *str);
 int linage(const char *content);
 void help();
+bool isCommit(const char *pStr, int len);
 bool isFun(const char *lpstr, int str_size, const char *fun_name);
 bool isInvalid(int argc, char *argv[], const char *const*option, int count);
 const char *movepointer(const char *p, char ch, bool bfront);
 void remove_comment(char *content);
-void search(const char *cPath, const char *filename, const char *lpstr, void(*fun)(const char *content, const char *lpstr, std::vector<std::string>&str));
+void search(const std::string&cPath, const char *filename, const char *lpstr, void(*fun)(const char *content, const char *lpstr, std::vector<std::string>&str));
 void search_fun(const char *content, const char *lpstr, std::vector<std::string>&str);
 void search_macro(const char *content, const char *lpstr, std::vector<std::string>&str);
 void search_struct(const char *content, const char *lpstr, std::vector<std::string>&str);
@@ -54,7 +57,7 @@ void search_type_define(const char *content, const char *lpstr, std::vector<std:
 #ifdef WIN32
 void SetTextColor(WORD color);
 #endif
-std::string searchStructString = "struct ";
+std::string searchStructString = "struct";
 //char *strrpc(char *str,char *oldstr,char *newstr);
 int main(int argc, char *argv[]){
 	double getdir_totaltime = 0.0f, search_totaltime = 0.0f;
@@ -67,8 +70,8 @@ int main(int argc, char *argv[]){
 	}
 	char sstr[MAXBYTE] = {0};//search string
 	char sfName[MAXBYTE] = {0};//search file name
-	std::vector<search_infor>path;
-	char rootdirectory[MAX_PATH] = {0};
+	int rootdirectory_index = get_index_in_line(argc, argv, "-d");
+	char *rootdirectory = nullptr;
 	Search_Type fun_index = INVALID_VAL;
 	void (*fun[])(const char *content, const char *lpstr, std::vector<std::string>&str) = {
 		search_fun,
@@ -80,20 +83,33 @@ int main(int argc, char *argv[]){
 	//if user specified file directory then user that diretory for root directory
 	//if user specified file name and directory then user that file name and that directory search
 	//so should know user have specify directory or file name
-	if(!get_val_in_line(argc, argv, "-d", rootdirectory)){
+	int len = 0;
+	if(rootdirectory_index == INVALID_VAL){
 #if __linux
-		strcpy(rootdirectory, "/usr/include");
+		len = strlen(DEFAULT_PATH);
+		rootdirectory = new char[len + 1];
+		memcpy(rootdirectory, DEFAULT_PATH, len);
 #endif
 #if WIN32
 		char *env = getenv("include");
 		if(env){
-			strcpy(rootdirectory, env);
+			len = strlen(env);
+			rootdirectory = new char[len + 1];
+			memcpy(rootdirectory, env, len);
 		}
 		else{
 			printf("not found environment variable:include, please specify include path or other path\n");
 		}
 #endif
+		rootdirectory[len] = 0;
 	}
+	else{
+		len = strlen(argv[rootdirectory_index + 1]);
+		rootdirectory = new char[len + 1];
+		memcpy(rootdirectory, argv[rootdirectory_index + 1], len);
+		rootdirectory[len] = 0;
+	}
+
 	//获得-f或者其他选项后面的内容(除了-d,-n),顺便得到需要执行的index
 	for(int i = 0; i < sizeof(option) / sizeof(char *) - 2; i++){
 		if(get_val_in_line(argc, argv, option[i], sstr)){
@@ -102,27 +118,15 @@ int main(int argc, char *argv[]){
 		}
 	}
 	//----
-	if(!strcmp(sstr, "")){
-		printf("no specified string to search\n");
-		return -1;
-	}
 	if(fun_index > searchStruct){
 		const char *s[] = { "enum", "class", "namespace" };
 		searchStructString = s[fun_index - 4];
 		fun_index = searchStruct;//------note:
 	}
-//	char op[MAXBYTE] = { 0 };
-//	if(get_val_in_line(argc, argv, "-e", op)){
-//		searchStructString = "enum ";
-//	}
-//	else if(get_val_in_line(argc, argv, "-c", op)){
-//		searchStructString = "class";
-//	}
-//	else if(get_val_in_line(argc, argv, "-ns", op)){
-//		searchStructString = "namespace";
-//	}
+	int total_file = 0;
 	get_val_in_line(argc, argv, "-n", sfName);
-	if(strcmp(sfName, "")){
+	if(strcmp(sfName, "") && strcmp(sstr, "")){
+		total_file = 1;
 		search_file_start = clock();
 		search(rootdirectory, sfName, sstr,fun[fun_index]);
 		search_file_finish = clock();
@@ -130,36 +134,49 @@ int main(int argc, char *argv[]){
 	}
 	else{
 		//获得路径,然后搜索
-		getdir_start = clock();
-
+		std::vector<search_infor>path;
+	
+		getdir_start = clock();		
 		getdir(rootdirectory, path);
-
 		getdir_finish = clock();
 		getdir_totaltime = (double)(getdir_finish - getdir_start) / CLOCKS_PER_SEC;
 
 		search_file_start = clock();
-
-		for(int i = 0; i < path.size(); i++){
-			for(int j = 0; j < path[i].sfname.size(); j++)
-				search(path[i].spath, path[i].sfname[j].c_str(), sstr, fun[fun_index]);
+		if(strcmp(sstr, "")){
+			for(int i = 0; i < path.size(); i++){
+				for(int j = 0; j < path[i].sfname.size(); j++)
+					search(path[i].spath, path[i].sfname[j].c_str(), sstr, fun[fun_index]);
+			}
+		}else{
+			struct stat s;
+			for(int i = 0; i < path.size(); i++){
+				for(int j = 0; j < path[i].sfname.size(); j++){
+					if(path[i].sfname[j] == sfName){
+						stat(path[i].sfname[j].c_str(), &s);
+						std::cout << "size:" << s.st_size << ";directory:"  << path[i].spath << ";file:" << path[i].sfname[j] << std::endl; 
+					}
+				}
+			}
 		}
 
 		search_file_finish = clock();
 		search_totaltime = (double)(search_file_finish - search_file_start) / CLOCKS_PER_SEC;
-   	}
-	int total_file = 0;
-	//get file number
-	for(int i = 0; i < path.size(); i++){
-		total_file += path[i].sfname.size();
+
+		//get file number
+		for(int i = 0; i < path.size(); i++){
+			total_file += path[i].sfname.size();
+		}
 	}
 	std::cout << "-----------------------------" << std::endl;
 	std::cout << "search path:" << rootdirectory << std::endl;
 	std::cout << "total file:" << total_file << ";get directory time:" << getdir_totaltime << ";search file time:" << search_totaltime << std::endl;
+	delete[]rootdirectory;
 	return 0;
 }
+/*{{{*/
 void getdir(const char *root, std::vector<search_infor>&path){
 	search_infor infor;
-	strcpy(infor.spath, root);
+	infor.spath = root;
 #ifdef __linux
 	DIR *d;
 	dirent *file = NULL;
@@ -172,10 +189,10 @@ void getdir(const char *root, std::vector<search_infor>&path){
 		if(strcmp(file->d_name, ".") && strcmp(file->d_name, "..")){
 			if(file->d_type == DT_DIR){
 				char szPath[MAX_PATH] = {0};
-				if('/' != infor.spath[strlen(infor.spath) - 1])
-					sprintf(szPath, "%s/%s", infor.spath, file->d_name);
+				if('/' != infor.spath[infor.spath.length() - 1])
+					sprintf(szPath, "%s/%s", infor.spath.c_str(), file->d_name);
 				else
-					sprintf(szPath, "%s%s", infor.spath, file->d_name);
+					sprintf(szPath, "%s%s", infor.spath.c_str(), file->d_name);
 				getdir(szPath, path);
 			}
 			else{
@@ -220,12 +237,23 @@ void getdir(const char *root, std::vector<search_infor>&path){
 #endif
 	path.push_back(infor);
 }
-void search(const char *cPath, const char *filename, const char *lpstr, void(*fun)(const char *content, const char *lpstr, std::vector<std::string>&str)){
+/*}}}*/
+/*{{{*/
+bool isCommit(const char *pStr, int len){
+	if(!memchr(pStr, '/', len) && !memchr(pStr, '*', len))return false;
+	for(int i = 0; i < len - 1; ++i){
+		if(isalpha(pStr[i]))break;
+		if(pStr[i] == '*' || (pStr[i] == '/' && (pStr[i + 1] == '*' || pStr[i + 1] == '/')))return true;
+	}
+	return false;
+}
+/*}}}*/
+void search(const std::string&cPath, const char *filename, const char *lpstr, void(*fun)(const char *content, const char *lpstr, std::vector<std::string>&str)){
 	char szPath[MAXBYTE] = {0};
-	if('/' != cPath[strlen(cPath) - 1])
-		sprintf(szPath, "%s/%s", cPath, filename);
+	if('/' != cPath[cPath.length() - 1])
+		sprintf(szPath, "%s/%s", cPath.c_str(), filename);
 	else
-		sprintf(szPath, "%s%s", cPath, filename);
+		sprintf(szPath, "%s%s", cPath.c_str(), filename);
 	FILE *fp = fopen(szPath, "rb");
 	if(!fp){
 		perror("read file error");
@@ -256,9 +284,11 @@ void search(const char *cPath, const char *filename, const char *lpstr, void(*fu
 #endif
 	}
 	for(int i = 0; i < str.size(); i++){
-		lpStart = strstr(content, str[i].c_str());
-		line = linage(content) - linage(lpStart) + 1;
-		printf("%d:%s\n",line, str[i].c_str());
+		if(!isCommit(str[i].c_str(), str[i].length())){
+			lpStart = strstr(content, str[i].c_str());
+			line = linage(content) - linage(lpStart) + 1;
+			printf("%d:%s\n",line, str[i].c_str());
+		}
 	}
 	delete[]content;
 	str.clear();
@@ -312,17 +342,21 @@ void search_fun(const char *content, const char *lpstr, std::vector<std::string>
 //		printf("%.*s\n", 50, lpStart);
 		lpStart = movepointer(lpStart, '\n', true);lpStart++;
 //		int len = strcspn(lpStart, ");");
-		int len = 0;
-		int lineSize;
-		do{
-			lineSize = strcspn(lpStart + len, "\n");
-			len += lineSize;
-		}while(memchr(lpStart + len - lineSize, '\\', lineSize));
+		int lineSize = strcspn(lpStart, "\n");
+		if(memchr(lpStart, '\\', lineSize) || !memchr(lpStart, '(', lineSize)){
+			lpStart += lineSize + 1;
+			continue;
+		}
+		int len = strcspn(lpStart, ";");
+		if(len < lineSize - 1){
+			lpStart += lineSize + 1;
+			continue;
+		}
 		if(strchr(lpstr, '(') || isFun(lpStart, len + 1, lpstr)){
 			std::string _str(lpStart, len + 1);
 			str.push_back(_str);
 		}
-		lpStart += len + 1;
+		lpStart += lineSize + 1;
 	}
 }
 /*{{{*/
@@ -357,18 +391,16 @@ void search_struct(const char *content, const char *lpstr, std::vector<std::stri
 		lpStart -= strlen("typedef ");
 		if(memcmp(lpStart, "typedef ", strlen("typedef")))lpStart += strlen("typedef ");
 		p = strchr(lpStart, '\n');
-		if(p && ';' != *(p - 1)){
+		if(p && memchr(lpStart, '{', strcspn(lpStart, "\n")) && ';' != *(p - 1)){
 			int count = 1;
 			p = strchr(lpStart, '{');
-			if(p){
-				do{
-					p++;
+			do{
+				p++;
 					if(*p == '{')count++;
-					if(*p == '}')count--;
-					if(!p)break;
-				}while(count);
-				p = strchr(p, '\n');
-			}
+				if(*p == '}')count--;
+				if(!p)break;
+			}while(count);
+			p = strchr(p, '\n');
 		}
 		if(p){
 			*p = 0;
