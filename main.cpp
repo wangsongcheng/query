@@ -283,10 +283,13 @@ void search(const std::string&cPath, const char *filename, const char *lpstr, vo
 		SetTextColor(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 #endif
 	}
+	int find_str_len = strlen(lpstr);
 	for(int i = 0; i < str.size(); i++){
 		if(!isCommit(str[i].c_str(), str[i].length())){
 			lpStart = strstr(content, str[i].c_str());
 			line = linage(content) - linage(lpStart) + 1;
+			str[i].insert(str[i].find(lpstr), "\e[31m");
+			str[i].insert(str[i].find(lpstr) + find_str_len, "\e[0m");
 			printf("%d:%s\n",line, str[i].c_str());
 		}
 	}
