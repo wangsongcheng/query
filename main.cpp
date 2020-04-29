@@ -288,8 +288,10 @@ void search(const std::string&cPath, const char *filename, const char *lpstr, vo
 		if(!isCommit(str[i].c_str(), str[i].length())){
 			lpStart = strstr(content, str[i].c_str());
 			line = linage(content) - linage(lpStart) + 1;
+#ifdef __linux
 			str[i].insert(str[i].find(lpstr), "\e[31m");
 			str[i].insert(str[i].find(lpstr) + find_str_len, "\e[0m");
+#endif
 			printf("%d:%s\n",line, str[i].c_str());
 		}
 	}
