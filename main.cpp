@@ -21,7 +21,7 @@
 #ifdef __linux
 #define MAXBYTE 0xff
 #define MAX_PATH 360
-#define DEFAULT_PATH "/usr/include"
+#define DEFAULT_PATH "/usr/include/"
 #endif
 enum Search_Type{
 	INVALID_VAL = -1,
@@ -40,20 +40,23 @@ struct search_infor{
 //bool g_bFun;
 int getfilelen(FILE *fp);
 void getdir(const char *root, std::vector<search_infor>&path);
-bool get_val_in_line(int argc, char *argv[], const char *lpsstr, char *lpstr);
-int get_index_in_line(int argc, char *argv[], const char *str);
-int linage(const char *content);
+bool get_val_in_line(int argc, char *argv[], const std::string&lpsstr, std::string&lpstr, int32_t start = 1);
+int get_index_in_line(int argc, char *argv[], const std::string&str, int32_t start = 1);
+void get_root_path_or_file(int argc, char *argv[], const std::string&opt, std::vector<std::string>&out);
+int linage(const std::string&content);
 void help();
 bool isCommit(const char *pStr, int len);
 bool isFun(const char *lpstr, int str_size, const char *fun_name);
-bool isInvalid(int argc, char *argv[], const char *const*option, int count);
+bool isInvalid(int argc, char *argv[], const std::vector<std::string>&option);
 const char *movepointer(const char *p, char ch, bool bfront);
 void remove_comment(char *content);
-void search(const std::string&cPath, const char *filename, const char *lpstr, void(*fun)(const char *content, const char *lpstr, std::vector<std::string>&str));
-void search_fun(const char *content, const char *lpstr, std::vector<std::string>&str);
-void search_macro(const char *content, const char *lpstr, std::vector<std::string>&str);
-void search_struct(const char *content, const char *lpstr, std::vector<std::string>&str);
-void search_type_define(const char *content, const char *lpstr, std::vector<std::string>&str);
+void removeSame(const std::vector<std::string>&in, std::vector<std::string>&out);
+void removeSame(const std::vector<std::string>&in, std::vector<search_infor>&out);
+void search(const std::string&cPath, const std::string&filename, const std::string&lpstr, void(*fun)(const std::string&content, const std::string&lpstr, std::vector<std::string>&str));
+void search_fun(const std::string&content, const std::string&lpstr, std::vector<std::string>&str);
+void search_macro(const std::string&content, const std::string&lpstr, std::vector<std::string>&str);
+void search_struct(const std::string&content, const std::string&lpstr, std::vector<std::string>&str);
+void search_type_define(const std::string&content, const std::string&lpstr, std::vector<std::string>&str);
 #ifdef WIN32
 void SetTextColor(WORD color);
 #endif
@@ -62,116 +65,126 @@ std::string searchStructString = "struct";
 int main(int argc, char *argv[]){
 	double getdir_totaltime = 0.0f, search_totaltime = 0.0f;
 	clock_t getdir_start, getdir_finish, search_file_start, search_file_finish;//time count
-	const char *option[] = { "-f", "-m", "-s", "-t", "-e", "-c", "-ns", "-d", "-n"};
-	if(isInvalid(argc, argv, option, 6)){
+	
+	const std::vector<std::string> option = { "-f", "-m", "-s", "-t", "-u", "-e", "-c", "-ns" };//, "-d", "-n"
+	if(isInvalid(argc, argv, option)){
 		printf("parameter insufficient:\n");
 		help();
 		return -1;
 	}
-	char sstr[MAXBYTE] = {0};//search string
-	char sfName[MAXBYTE] = {0};//search file name
-	int rootdirectory_index = get_index_in_line(argc, argv, "-d");
-	char *rootdirectory = nullptr;
-	Search_Type fun_index = INVALID_VAL;
-	void (*fun[])(const char *content, const char *lpstr, std::vector<std::string>&str) = {
+	
+	std::vector<std::string> rootPath;
+	std::vector<std::string> searchFile;
+	std::vector<std::string> noSearchPath;
+	std::vector<std::string> noSearchFile = { "vulkan_core.h" };
+	get_root_path_or_file(argc, argv, "-d", rootPath);
+	get_root_path_or_file(argc, argv, "-n", searchFile);
+	// get_root_path_or_file(argc, argv, "--d", noSearchPath);
+	get_root_path_or_file(argc, argv, "--n", noSearchFile);
+	// removeSame(noSearchPath, rootPath);
+// 	if(rootPath.empty()){
+// #if __linux
+// 		rootPath.push_back(DEFAULT_PATH);
+// #endif
+// #if WIN32
+// 		rootPath.push_back(getenv("include"));
+// 		if(rootPath.empty()){
+// 			printf("not found environment variable:include, please specify include path or other path\n");
+// 			exit(-1);
+// 		}
+// #endif
+// 	}
+	removeSame(noSearchFile, searchFile);
+	void (*fun[])(const std::string&content, const std::string&lpstr, std::vector<std::string>&str) = {
 		search_fun,
 		search_macro,
-		search_struct,
+		search_struct,//class、enum、namespace
 		search_type_define,
 	};
-	//if user specified file name then user default directory and that file name search
-	//if user specified file directory then user that diretory for root directory
-	//if user specified file name and directory then user that file name and that directory search
-	//so should know user have specify directory or file name
-	int len = 0;
-	if(rootdirectory_index == INVALID_VAL){
-#if __linux
-		len = strlen(DEFAULT_PATH);
-		rootdirectory = new char[len + 1];
-		memcpy(rootdirectory, DEFAULT_PATH, len);
-#endif
-#if WIN32
-		char *env = getenv("include");
-		if(env){
-			len = strlen(env);
-			rootdirectory = new char[len + 1];
-			memcpy(rootdirectory, env, len);
-		}
-		else{
-			printf("not found environment variable:include, please specify include path or other path\n");
-		}
-#endif
-		rootdirectory[len] = 0;
-	}
-	else{
-		len = strlen(argv[rootdirectory_index + 1]);
-		rootdirectory = new char[len + 1];
-		memcpy(rootdirectory, argv[rootdirectory_index + 1], len);
-		rootdirectory[len] = 0;
-	}
-
-	//获得-f或者其他选项后面的内容(除了-d,-n),顺便得到需要执行的index
-	for(int i = 0; i < sizeof(option) / sizeof(char *) - 2; i++){
-		if(get_val_in_line(argc, argv, option[i], sstr)){
-			fun_index = (Search_Type)i;
-			break;
-		}
-	}
-	//----
-	if(fun_index > searchStruct){
-		const char *s[] = { "enum", "class", "namespace" };
-		searchStructString = s[fun_index - 4];
-		fun_index = searchStruct;//------note:
-	}
 	int total_file = 0;
-	get_val_in_line(argc, argv, "-n", sfName);
-	if(strcmp(sfName, "") && strcmp(sstr, "")){
-		total_file = 1;
-		search_file_start = clock();
-		search(rootdirectory, sfName, sstr,fun[fun_index]);
-		search_file_finish = clock();
-		search_totaltime = (double)(search_file_finish - search_file_start) / CLOCKS_PER_SEC;
-	}
-	else{
-		//获得路径,然后搜索
-		std::vector<search_infor>path;
-	
-		getdir_start = clock();		
-		getdir(rootdirectory, path);
-		getdir_finish = clock();
-		getdir_totaltime = (double)(getdir_finish - getdir_start) / CLOCKS_PER_SEC;
-
-		search_file_start = clock();
-		if(strcmp(sstr, "")){
-			for(int i = 0; i < path.size(); i++){
-				for(int j = 0; j < path[i].sfname.size(); j++)
-					search(path[i].spath, path[i].sfname[j].c_str(), sstr, fun[fun_index]);
+	//支持查询多个相同选项：-f strcpy -f printf -m MAXBYTE -m A
+	for (size_t i = 0; i < option.size(); ++i){
+		//判断需要查询的类型
+		int32_t offset = 1;
+		std::string findStr;
+		int32_t index = INVALID_VAL;
+		while(INVALID_VAL != (index = get_index_in_line(argc, argv, option[i], offset))){
+			findStr = argv[index + 1];
+			//收集相关信息
+			offset = index + 2;//找第二个相同选项
+			Search_Type funIndex = (Search_Type)i;
+			if(funIndex > searchTypeDefine){
+				funIndex = searchStruct;//------note:
+				const char *s[] = { "union", "enum", "class", "namespace" };
+				searchStructString = s[funIndex - 4];
 			}
-		}else{
-			struct stat s;
-			for(int i = 0; i < path.size(); i++){
-				for(int j = 0; j < path[i].sfname.size(); j++){
-					if(!memcmp(path[i].sfname[j].c_str(), sfName, strlen(sfName))){
-						stat(path[i].sfname[j].c_str(), &s);
-						std::cout << "size:" << s.st_size << ";directory:"  << path[i].spath << ";file:" << path[i].sfname[j] << std::endl; 
+			if(searchFile.empty()){
+				//没有指定文件名称，需要查找目录下的所有文件名
+				for (size_t j = 0; j < rootPath.size(); ++j){
+					std::vector<search_infor>path;
+					getdir_start = clock();		
+					getdir(rootPath[j].c_str(), path);
+					getdir_finish = clock();
+					getdir_totaltime = (double)(getdir_finish - getdir_start) / CLOCKS_PER_SEC;
+					search_file_start = clock();
+					// removeSame(path, noSearchPath);
+					removeSame(noSearchFile, path);
+					for(int k = 0; k < path.size(); ++k){
+						for(int l = 0; l < path[k].sfname.size(); ++l)
+							search(path[k].spath, path[k].sfname[l], findStr, fun[funIndex]);
+					}
+					search_file_finish = clock();
+					search_totaltime = (double)(search_file_finish - search_file_start) / CLOCKS_PER_SEC;
+
+					//get file number
+					for(int i = 0; i < path.size(); i++){
+						total_file += path[i].sfname.size();
 					}
 				}
 			}
-		}
-
-		search_file_finish = clock();
-		search_totaltime = (double)(search_file_finish - search_file_start) / CLOCKS_PER_SEC;
-
-		//get file number
-		for(int i = 0; i < path.size(); i++){
-			total_file += path[i].sfname.size();
-		}
+			else{
+				search_file_start = clock();
+				total_file = searchFile.size() * rootPath.size();
+				for (size_t j = 0; j < rootPath.size(); ++j){
+					for (size_t k = 0; k < searchFile.size(); ++k){
+						search(rootPath[j], searchFile[k], findStr, fun[funIndex]);
+					}
+				}
+				search_file_finish = clock();
+				search_totaltime = (double)(search_file_finish - search_file_start) / CLOCKS_PER_SEC;
+			}
+		}			
 	}
 	std::cout << "-----------------------------" << std::endl;
-	std::cout << "search path:" << rootdirectory << std::endl;
+	std::cout << "search path:";
+	for (size_t i = 0; i < rootPath.size(); ++i){
+		std::cout << rootPath[i] << "\t";
+	}
+	std::cout << "\n";
 	std::cout << "total file:" << total_file << ";get directory time:" << getdir_totaltime << ";search file time:" << search_totaltime << std::endl;
-	delete[]rootdirectory;
 	return 0;
+}
+void removeSame(const std::vector<std::string>&in, std::vector<std::string>&out){
+	for (size_t j = 0; j < in.size(); ++j){
+		for (size_t i = 0; i < out.size(); ++i){
+			if(out[i] == in[j]){
+				out.erase(out.begin() + i);
+				break;
+			}
+		}		
+	}
+}
+void removeSame(const std::vector<std::string>&in, std::vector<search_infor>&out){
+	for (size_t j = 0; j < in.size(); ++j){
+		for (size_t i = 0; i < out.size(); ++i){
+			for (size_t l = 0; l < out[i].sfname.size(); ++l){
+				if(in[j] == out[i].sfname[l]){
+					out[i].sfname.erase(out[i].sfname.begin() + l);
+					break;
+				}
+			}			
+		}
+	}
 }
 /*{{{*/
 void getdir(const char *root, std::vector<search_infor>&path){
@@ -247,35 +260,39 @@ bool isCommit(const char *pStr, int len){
 	}
 	return false;
 }
+
+// void search_file(const std::string&cPath, const char *filename){
+// 	//有路径找文件，有文件名找路径
+// }
 /*}}}*/
-void search(const std::string&cPath, const char *filename, const char *lpstr, void(*fun)(const char *content, const char *lpstr, std::vector<std::string>&str)){
-	char szPath[MAXBYTE] = {0};
+void search(const std::string&cPath, const std::string&filename, const std::string&lpstr, void(*fun)(const std::string&content, const std::string&lpstr, std::vector<std::string>&str)){
+	std::string szPath;
+	char *content = nullptr; 
 	if('/' != cPath[cPath.length() - 1])
-		sprintf(szPath, "%s/%s", cPath.c_str(), filename);
+		szPath = cPath + "/" + filename;
 	else
-		sprintf(szPath, "%s%s", cPath.c_str(), filename);
-	FILE *fp = fopen(szPath, "rb");
+		szPath = cPath + filename;
+	FILE *fp = fopen(szPath.c_str(), "rb");
 	if(!fp){
 		perror("read file error");
-		printf("path is %s\n", szPath);
+		printf("path is %s\n", szPath.c_str());
 		return;
 	}
 	int size = getfilelen(fp);
-	char *content = new char[size + 1];
-	memset(content, 0, size + 1);
+	content = new char[size + 1];
 	fread(content, size, 1, fp);
+	content[size] = 0;
 	fclose(fp);
-	//remove_comment(content);
-	if(!strcmp(filename, "vulkan_core.h")){
-		int j = 0;
-	}
+
+	remove_comment(content);
+
 	std::vector<std::string>str;
 	fun(content, lpstr, str);
 	int line;
-	char *lpStart = 0;//show line
+	const char *lpStart = 0;//show line
 	if(!str.empty()){
 #ifdef __linux
-		printf("\e[32m%s\e[0m\n", szPath);
+		printf("\e[32m%s\e[0m\n", szPath.c_str());
 #endif
 #ifdef WIN32
 		SetTextColor(FOREGROUND_GREEN);
@@ -283,7 +300,7 @@ void search(const std::string&cPath, const char *filename, const char *lpstr, vo
 		SetTextColor(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 #endif
 	}
-	int find_str_len = strlen(lpstr);
+	int find_str_len = lpstr.length();
 	for(int i = 0; i < str.size(); i++){
 		if(!isCommit(str[i].c_str(), str[i].length())){
 			lpStart = strstr(content, str[i].c_str());
@@ -296,7 +313,6 @@ void search(const std::string&cPath, const char *filename, const char *lpstr, vo
 		}
 	}
 	delete[]content;
-	str.clear();
 }
 bool isFun(const char *lpstr, int str_size, const char *fun_name){
 	bool bIsFun = false;
@@ -339,34 +355,34 @@ const char *movepointer(const char *p, char ch, bool bfront){
 	return p;
 }
 /*}}}*/
-void search_fun(const char *content, const char *lpstr, std::vector<std::string>&str){
-//-------
-	const char *lpStart = content;
-	while((lpStart = strstr(lpStart, lpstr))){
+void search_fun(const std::string&content, const std::string&lpstr, std::vector<std::string>&str){
+	const char *lpStart = content.c_str();
+	while((lpStart = strstr(lpStart, lpstr.c_str()))){
 		//---判断找到的字符串是否是函数
 //		printf("%.*s\n", 50, lpStart);
 		lpStart = movepointer(lpStart, '\n', true);lpStart++;
-//		int len = strcspn(lpStart, ");");
 		int lineSize = strcspn(lpStart, "\n");
-		if(memchr(lpStart, '\\', lineSize) || !memchr(lpStart, '(', lineSize)){
-			lpStart += lineSize + 1;
-			continue;
-		}
-		int len = strcspn(lpStart, ";");
-		if(len < lineSize - 1){
-			lpStart += lineSize + 1;
-			continue;
-		}
-		if(strchr(lpstr, '(') || isFun(lpStart, len + 1, lpstr)){
-			std::string _str(lpStart, len + 1);
-			str.push_back(_str);
+		if(*lpStart != '#'){
+			if(memchr(lpStart, '\\', lineSize) || !memchr(lpStart, '(', lineSize)){
+				lpStart += lineSize + 1;
+				continue;
+			}
+			int len = strcspn(lpStart, ";");
+			if(len < lineSize - 1){
+				lpStart += lineSize + 1;
+				continue;
+			}
+			if(lpstr.find('(') != std::string::npos || isFun(lpStart, len + 1, lpstr.c_str())){
+				std::string _str(lpStart, len + 1);
+				str.push_back(_str);
+			}
 		}
 		lpStart += lineSize + 1;
 	}
 }
 /*{{{*/
-void search_macro(const char *content, const char *lpstr, std::vector<std::string>&str){
-	const char *lpStart = content;
+void search_macro(const std::string&content, const std::string&lpstr, std::vector<std::string>&str){
+	const char *lpStart = content.c_str();
 	char buffer[MAXBYTE] = {0};
 	sprintf(buffer, "#define %s", lpstr);
 	while((lpStart = strstr(lpStart, buffer))){
@@ -378,20 +394,20 @@ void search_macro(const char *content, const char *lpstr, std::vector<std::strin
 		}
 		std::string buff(lpStart, len);
 		str.push_back(buff);
-		lpStart += strlen(lpstr) + strlen("#define ");
+		lpStart += lpstr.length() + strlen("#define ");
 	}
 }
 /*}}}*/
-void search_struct(const char *content, const char *lpstr, std::vector<std::string>&str){
+void search_struct(const std::string&content, const std::string&lpstr, std::vector<std::string>&str){
 //just search struct name;no search struct alias name
-	int count = strlen(content);
+	int count = content.length();
 	char *Buff = new char[count + 1];
 	memset(Buff, 0, count + 1);
-	strcpy(Buff, content);
+	strcpy(Buff, content.c_str());
 	char *p = nullptr;
 	char *lpStart = Buff;
 	char buffer[MAXBYTE] = {0};
-	sprintf(buffer, "%s %s", searchStructString.c_str(), lpstr);
+	sprintf(buffer, "%s %s", searchStructString.c_str(), lpstr.c_str());
 	while((lpStart = strstr(lpStart, buffer))){
 		lpStart -= strlen("typedef ");
 		if(memcmp(lpStart, "typedef ", strlen("typedef")))lpStart += strlen("typedef ");
@@ -412,18 +428,18 @@ void search_struct(const char *content, const char *lpstr, std::vector<std::stri
 			std::string buff(lpStart);
 			str.push_back(buff);
 		}
-		lpStart += strlen(lpstr) + searchStructString.length() + strlen("typedef");
+		lpStart += lpstr.length() + searchStructString.length() + strlen("typedef");
 	}
 	delete[]Buff;
 }
-void search_type_define(const char *content, const char *lpstr, std::vector<std::string>&str){
-	int count = strlen(content);
+void search_type_define(const std::string&content, const std::string&lpstr, std::vector<std::string>&str){
+	int count = content.length();
 	char *Buff = new char[count + 1];
 	memset(Buff, 0, count + 1);
-	strcpy(Buff, content);
+	strcpy(Buff, content.c_str());
 	char *lpStart = Buff;
 	char buffer[MAXBYTE] = {0};
-	sprintf(buffer, "typedef %s", lpstr);
+	sprintf(buffer, "typedef %s", lpstr.c_str());
 	while((lpStart = strstr(lpStart, buffer))){
 		char *p = strchr(lpStart, '\n');
 		if(p){
@@ -431,7 +447,7 @@ void search_type_define(const char *content, const char *lpstr, std::vector<std:
 			std::string buff(lpStart);
 			str.push_back(buff);
 		}
-		lpStart += strlen(lpstr) + strlen("typedef ");
+		lpStart += lpstr.length() + strlen("typedef ");
 	}
 	delete[]Buff;
 }
@@ -441,18 +457,21 @@ void SetTextColor(WORD color){
 	SetConsoleTextAttribute(hout, color);
 }
 #endif
-bool get_val_in_line(int argc, char *argv[], const char*lpsstr, char *lpstr){
-	int index = get_index_in_line(argc, argv, lpsstr);
+bool get_val_in_line(int argc, char *argv[], const std::string&lpsstr, std::string&lpstr, int32_t start){
+	int index = get_index_in_line(argc, argv, lpsstr, start);
 	if(INVALID_VAL != index && argv[index + 1]){
-		return strcpy(lpstr, argv[index + 1]);
+		lpstr = argv[index + 1];
+		return true;
 	}
 	return false;
 }
 void help(){
-	printf("example:query -f strcpy\n");
 	printf("format:option string [option][string]...\n");
+	printf("example:query -f strcpy\n");
+	printf("--n表示不在该文件内搜索\n");
 	printf("option:\n");
 	printf("\t'-e' indicate search enum\n");
+	printf("\t'-e' indicate search union\n");
 	printf("\t'-c' indicate search class\n");
 	printf("\t'-m' indicate search macro\n");
 	printf("\t'-f' indicate search function\n");
@@ -462,23 +481,25 @@ void help(){
 	printf("\t'-t' indicate search type define\n");
 	printf("\t'-n' indicate search in that file;\n");
 }
-bool isInvalid(int argc, char *argv[], const char *const*option, int count){
+bool isInvalid(int argc, char *argv[], const std::vector<std::string>&option){
 	int ioption = 0;
-	if(argc < 2)return true;
-	for(int i = 1; i < argc; i++){
-		for(int j = 0; j < count; j++){
-			if(!strcmp(option[j], argv[i])){
+	int optCount = 0;
+	if(argc < 3)return true;
+	for(int j = 0; j < option.size(); j++){
+		if(INVALID_VAL == get_index_in_line(argc, argv, option[j]))++optCount;
+		for(int i = 1; i < argc; i++){
+			if(option[j] == argv[i]){
 				ioption++;
 				break;
 			}
 		}
 	}
 	//说明不是只有传一个 选项
-	return (ioption == argc - 1);
+	return (ioption == argc - 1) || optCount == option.size();
 }
-int get_index_in_line(int argc, char *argv[], const char *str){
-	for(int i = 1; i < argc; i++){
-		if(!strcmp(argv[i], str)){
+int get_index_in_line(int argc, char *argv[], const std::string&str, int32_t start){
+	for(int i = start; i < argc; i++){
+		if(argv[i] == str){
 			return i;
 		}
 	}
@@ -523,9 +544,9 @@ void remove_comment(char *content){
 		lpStart++;
 	}
 }
-int linage(const char *content){
+int linage(const std::string&content){
 	int line = 1;
-	const char *lpStart = content;
+	const char *lpStart = content.c_str();
 	while((lpStart = strchr(lpStart, '\n')) && ++line && ++lpStart);
 	return line;
 }
@@ -547,3 +568,23 @@ char *strrpc(char *str,char *oldstr,char *newstr){
 	return str;
 }
 */
+void get_root_path_or_file(int argc, char *argv[], const std::string&opt, std::vector<std::string>&out){
+	int offset = 1;
+	int index = INVALID_VAL;
+	while(INVALID_VAL != (index = get_index_in_line(argc, argv, opt, offset))){
+		offset = index + 2;//因为-d后面还有一个值，所以+2而不是+1
+		out.push_back(argv[index + 1]);
+	}
+	if(opt == "-d" && out.empty()){
+#if __linux
+		out.push_back(DEFAULT_PATH);
+#endif
+#if WIN32
+		out.push_back(getenv("include"));
+		if(out.empty()){
+			printf("not found environment variable:include, please specify include path or other path\n");
+			exit(-1);
+		}
+#endif
+	}
+}
