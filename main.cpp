@@ -30,7 +30,8 @@
 #define UNION_OPTION "-u"
 #define ENUM_OPTION "-e"
 #define CLASS_OPTION "-c"
-#define NO_SEARCH_FILE_OPTION "-ns"
+#define NAMESPACE_OPTION "--ns"
+#define NO_SEARCH_FILE_OPTION "--n"
 #define PATH_OPTION "-d"
 #define FILE_OPTION "-n"
 enum Search_Type{
@@ -78,7 +79,7 @@ int main(int argc, char *argv[]){
 	double getdir_totaltime = 0.0f, search_totaltime = 0.0f;
 	clock_t getdir_start, getdir_finish, search_file_start, search_file_finish;//time count
 	
-	const std::vector<std::string> option = { FUNCTION_OPTION, MACRO_OPTION,  STRUCTURE_OPTION, TYPEDEF_OPTION, UNION_OPTION, ENUM_OPTION, CLASS_OPTION, NO_SEARCH_FILE_OPTION };//, "-d", "-n"
+	const std::vector<std::string> option = { FUNCTION_OPTION, MACRO_OPTION,  STRUCTURE_OPTION, TYPEDEF_OPTION, UNION_OPTION, ENUM_OPTION, CLASS_OPTION, NAMESPACE_OPTION };//, "-d", "-n"
 	if(isInvalid(argc, argv, option)){
 		printf("parameter insufficient:\n");
 		help();
@@ -579,7 +580,7 @@ char *strrpc(char *str,char *oldstr,char *newstr){
 }
 */
 bool isOption(int argc, char *argv[], int index){
-	const std::vector<std::string> option = { FUNCTION_OPTION, MACRO_OPTION,  STRUCTURE_OPTION, TYPEDEF_OPTION, UNION_OPTION, ENUM_OPTION, CLASS_OPTION, NO_SEARCH_FILE_OPTION,  PATH_OPTION, FILE_OPTION };
+	const std::vector<std::string> option = { FUNCTION_OPTION, MACRO_OPTION,  STRUCTURE_OPTION, TYPEDEF_OPTION, UNION_OPTION, ENUM_OPTION, CLASS_OPTION, NAMESPACE_OPTION,  PATH_OPTION, FILE_OPTION, NO_SEARCH_FILE_OPTION };
 	for(int i = 0; i < option.size(); ++i){
 		if(argv[index] == option[i]){
 			return true;
