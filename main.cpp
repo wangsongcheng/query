@@ -29,6 +29,7 @@ enum Search_Type{
 	searchMacro,
 	searchStruct,
 	searchTypeDefine,
+	searchUnion,
 	searchEnum,
 	searchClass,
 	searchNameSpace
@@ -76,7 +77,7 @@ int main(int argc, char *argv[]){
 	std::vector<std::string> rootPath;
 	std::vector<std::string> searchFile;
 	std::vector<std::string> noSearchPath;
-	std::vector<std::string> noSearchFile = { "vulkan_core.h" };
+	std::vector<std::string> noSearchFile;// = { "vulkan_core.h" };
 	get_root_path_or_file(argc, argv, "-d", rootPath);
 	get_root_path_or_file(argc, argv, "-n", searchFile);
 	// get_root_path_or_file(argc, argv, "--d", noSearchPath);
@@ -114,9 +115,9 @@ int main(int argc, char *argv[]){
 			offset = index + 2;//找第二个相同选项
 			Search_Type funIndex = (Search_Type)i;
 			if(funIndex > searchTypeDefine){
-				funIndex = searchStruct;//------note:
 				const char *s[] = { "union", "enum", "class", "namespace" };
 				searchStructString = s[funIndex - 4];
+				funIndex = searchStruct;//------note:
 			}
 			if(searchFile.empty()){
 				//没有指定文件名称，需要查找目录下的所有文件名
