@@ -23,6 +23,16 @@
 #define MAX_PATH 360
 #define DEFAULT_PATH "/usr/include/"
 #endif
+#define FUNCTION_OPTION "-f"
+#define MACRO_OPTION "-m"
+#define STRUCTURE_OPTION  "-s"
+#define TYPEDEF_OPTION "-t"
+#define UNION_OPTION "-u"
+#define ENUM_OPTION "-e"
+#define CLASS_OPTION "-c"
+#define NO_SEARCH_FILE_OPTION "-ns"
+#define PATH_OPTION "-d"
+#define FILE_OPTION "-n"
 enum Search_Type{
 	INVALID_VAL = -1,
 	searchFun = 0,
@@ -43,10 +53,11 @@ int getfilelen(FILE *fp);
 void getdir(const char *root, std::vector<search_infor>&path);
 bool get_val_in_line(int argc, char *argv[], const std::string&lpsstr, std::string&lpstr, int32_t start = 1);
 int get_index_in_line(int argc, char *argv[], const std::string&str, int32_t start = 1);
-void get_root_path_or_file(int argc, char *argv[], const std::string&opt, std::vector<std::string>&out);
+void get_option_val(int argc, char *argv[], const std::string&opt, std::vector<std::string>&out);
 int linage(const std::string&content);
 void help();
 bool isCommit(const char *pStr, int len);
+bool isOption(int argc, char *argv[], int index);
 bool isFun(const char *lpstr, int str_size, const char *fun_name);
 bool isInvalid(int argc, char *argv[], const std::vector<std::string>&option);
 const char *movepointer(const char *p, char ch, bool bfront);
@@ -67,7 +78,7 @@ int main(int argc, char *argv[]){
 	double getdir_totaltime = 0.0f, search_totaltime = 0.0f;
 	clock_t getdir_start, getdir_finish, search_file_start, search_file_finish;//time count
 	
-	const std::vector<std::string> option = { "-f", "-m", "-s", "-t", "-u", "-e", "-c", "-ns" };//, "-d", "-n"
+	const std::vector<std::string> option = { FUNCTION_OPTION, MACRO_OPTION,  STRUCTURE_OPTION, TYPEDEF_OPTION, UNION_OPTION, ENUM_OPTION, CLASS_OPTION, NO_SEARCH_FILE_OPTION };//, "-d", "-n"
 	if(isInvalid(argc, argv, option)){
 		printf("parameter insufficient:\n");
 		help();
@@ -78,23 +89,22 @@ int main(int argc, char *argv[]){
 	std::vector<std::string> searchFile;
 	std::vector<std::string> noSearchPath;
 	std::vector<std::string> noSearchFile;// = { "vulkan_core.h" };
-	get_root_path_or_file(argc, argv, "-d", rootPath);
-	get_root_path_or_file(argc, argv, "-n", searchFile);
-	// get_root_path_or_file(argc, argv, "--d", noSearchPath);
-	get_root_path_or_file(argc, argv, "--n", noSearchFile);
-	// removeSame(noSearchPath, rootPath);
-// 	if(rootPath.empty()){
-// #if __linux
-// 		rootPath.push_back(DEFAULT_PATH);
-// #endif
-// #if WIN32
-// 		rootPath.push_back(getenv("include"));
-// 		if(rootPath.empty()){
-// 			printf("not found environment variable:include, please specify include path or other path\n");
-// 			exit(-1);
-// 		}
-// #endif
-// 	}
+	get_option_val(argc, argv, "-d", rootPath);
+	get_option_val(argc, argv, "-n", searchFile);
+	// get_option_val(argc, argv, "--d", noSearchPath);
+	get_option_val(argc, argv, "--n", noSearchFile);
+	if(rootPath.empty()){//用户未指定目录就从默认的目录查找
+#if __linux
+		rootPath.push_back(DEFAULT_PATH);
+#endif
+#if WIN32
+		rootPath.push_back(getenv("include"));
+		if(rootPath.empty()){
+			printf("not found environment variable:include, please specify include path or other path\n");
+			exit(-1);
+		}
+#endif
+	}
 	removeSame(noSearchFile, searchFile);
 	void (*fun[])(const std::string&content, const std::string&lpstr, std::vector<std::string>&str) = {
 		search_fun,
@@ -106,23 +116,20 @@ int main(int argc, char *argv[]){
 	//支持查询多个相同选项：-f strcpy -f printf -m MAXBYTE -m A
 	for (size_t i = 0; i < option.size(); ++i){
 		//判断需要查询的类型
-		int32_t offset = 1;
-		std::string findStr;
-		int32_t index = INVALID_VAL;
-		while(INVALID_VAL != (index = get_index_in_line(argc, argv, option[i], offset))){
-			findStr = argv[index + 1];
-			//收集相关信息
-			offset = index + 2;//找第二个相同选项
-			Search_Type funIndex = (Search_Type)i;
-			if(funIndex > searchTypeDefine){
-				const char *s[] = { "union", "enum", "class", "namespace" };
-				searchStructString = s[funIndex - 4];
-				funIndex = searchStruct;//------note:
-			}
-			if(searchFile.empty()){
-				//没有指定文件名称，需要查找目录下的所有文件名
+		std::vector<std::string> findStr;
+		get_option_val(argc, argv, option[i], findStr);
+		//收集相关信息
+		Search_Type funIndex = (Search_Type)i;
+		if(funIndex > searchTypeDefine){
+			const char *s[] = { "union", "enum", "class", "namespace" };
+			searchStructString = s[funIndex - 4];
+			funIndex = searchStruct;//------note:
+		}
+		if(searchFile.empty()){
+			//没有指定文件名称，需要查找目录下的所有文件名
+			std::vector<search_infor>path;
+			for(int strIndex = 0; strIndex < findStr.size(); ++strIndex){
 				for (size_t j = 0; j < rootPath.size(); ++j){
-					std::vector<search_infor>path;
 					getdir_start = clock();		
 					getdir(rootPath[j].c_str(), path);
 					getdir_finish = clock();
@@ -132,29 +139,31 @@ int main(int argc, char *argv[]){
 					removeSame(noSearchFile, path);
 					for(int k = 0; k < path.size(); ++k){
 						for(int l = 0; l < path[k].sfname.size(); ++l)
-							search(path[k].spath, path[k].sfname[l], findStr, fun[funIndex]);
+							search(path[k].spath, path[k].sfname[l], findStr[strIndex], fun[funIndex]);
 					}
 					search_file_finish = clock();
 					search_totaltime = (double)(search_file_finish - search_file_start) / CLOCKS_PER_SEC;
-
-					//get file number
-					for(int i = 0; i < path.size(); i++){
-						total_file += path[i].sfname.size();
-					}
 				}
 			}
-			else{
-				search_file_start = clock();
-				total_file = searchFile.size() * rootPath.size();
+
+			//get file number
+			for(int i = 0; i < path.size(); i++){
+				total_file += path[i].sfname.size();
+			}
+		}
+		else{
+			search_file_start = clock();
+			total_file = searchFile.size() * rootPath.size();
+			for(int strIndex = 0; strIndex < findStr.size(); ++strIndex){
 				for (size_t j = 0; j < rootPath.size(); ++j){
 					for (size_t k = 0; k < searchFile.size(); ++k){
-						search(rootPath[j], searchFile[k], findStr, fun[funIndex]);
+						search(rootPath[j], searchFile[k], findStr[strIndex], fun[funIndex]);
 					}
 				}
-				search_file_finish = clock();
-				search_totaltime = (double)(search_file_finish - search_file_start) / CLOCKS_PER_SEC;
 			}
-		}			
+			search_file_finish = clock();
+			search_totaltime = (double)(search_file_finish - search_file_start) / CLOCKS_PER_SEC;
+		}
 	}
 	std::cout << "-----------------------------" << std::endl;
 	std::cout << "search path:";
@@ -467,8 +476,8 @@ bool get_val_in_line(int argc, char *argv[], const std::string&lpsstr, std::stri
 	return false;
 }
 void help(){
-	printf("format:option string [option][string]...\n");
-	printf("example:query -f strcpy\n");
+	printf("format:option string string [option][string]...\n");
+	printf("example:query -f strcpy strcat -f vkCmdDraw -s VkDeviceCreateInfo - n string.h vulkan_core.h\n");
 	printf("--n表示不在该文件内搜索\n");
 	printf("option:\n");
 	printf("\t'-e' indicate search enum\n");
@@ -569,23 +578,24 @@ char *strrpc(char *str,char *oldstr,char *newstr){
 	return str;
 }
 */
-void get_root_path_or_file(int argc, char *argv[], const std::string&opt, std::vector<std::string>&out){
+bool isOption(int argc, char *argv[], int index){
+	const std::vector<std::string> option = { FUNCTION_OPTION, MACRO_OPTION,  STRUCTURE_OPTION, TYPEDEF_OPTION, UNION_OPTION, ENUM_OPTION, CLASS_OPTION, NO_SEARCH_FILE_OPTION,  PATH_OPTION, FILE_OPTION };
+	for(int i = 0; i < option.size(); ++i){
+		if(argv[index] == option[i]){
+			return true;
+		}
+	}
+	return false;
+}
+void get_option_val(int argc, char *argv[], const std::string&opt, std::vector<std::string>&out){
 	int offset = 1;
 	int index = INVALID_VAL;
 	while(INVALID_VAL != (index = get_index_in_line(argc, argv, opt, offset))){
-		offset = index + 2;//因为-d后面还有一个值，所以+2而不是+1
-		out.push_back(argv[index + 1]);
-	}
-	if(opt == "-d" && out.empty()){
-#if __linux
-		out.push_back(DEFAULT_PATH);
-#endif
-#if WIN32
-		out.push_back(getenv("include"));
-		if(out.empty()){
-			printf("not found environment variable:include, please specify include path or other path\n");
-			exit(-1);
+		++index;
+		while(argv[index] && !isOption(argc, argv, index)){
+			out.push_back(argv[index]);
+			++index;
 		}
-#endif
+		offset = index;
 	}
 }
