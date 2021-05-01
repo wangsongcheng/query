@@ -59,7 +59,7 @@ int linage(const std::string&content);
 void help();
 bool isCommit(const char *pStr, int len);
 bool isOption(int argc, char *argv[], int index);
-bool isFun(const char *lpstr, int str_size, const char *fun_name);
+// bool isFun(const char *lpstr, int str_size, const char *fun_name);
 bool isInvalid(int argc, char *argv[], const std::vector<std::string>&option);
 const char *movepointer(const char *p, char ch, bool bfront);
 void remove_comment(char *content);
@@ -90,10 +90,22 @@ int main(int argc, char *argv[]){
 	std::vector<std::string> searchFile;
 	std::vector<std::string> noSearchPath;
 	std::vector<std::string> noSearchFile;// = { "vulkan_core.h" };
-	get_option_val(argc, argv, "-d", rootPath);
+	/*
+		目前的程序，不希望用户通过-n选项指定其他路径的文件。需要指定其他路径，必须通过-d+-n选项
+		指定多个路径时，只会搜索第一个路径
+
+		指定多个路径，多个文件时。
+			如何知道用户是，一个文件多个路径搜索。还是一个路径一个文件搜索
+			目前的程序，是:一个文件多个路径搜索
+	*/
+
 	get_option_val(argc, argv, "-n", searchFile);
 	// get_option_val(argc, argv, "--d", noSearchPath);
 	get_option_val(argc, argv, "--n", noSearchFile);
+
+	
+	get_option_val(argc, argv, "-d", rootPath);
+
 	if(rootPath.empty()){//用户未指定目录就从默认的目录查找
 #if __linux
 		rootPath.push_back(DEFAULT_PATH);
@@ -128,28 +140,29 @@ int main(int argc, char *argv[]){
 		}
 		if(searchFile.empty()){
 			//没有指定文件名称，需要查找目录下的所有文件名
-			std::vector<search_infor>path;
+			std::vector<std::vector<search_infor>>path(2);
 			for(int strIndex = 0; strIndex < findStr.size(); ++strIndex){
 				for (size_t j = 0; j < rootPath.size(); ++j){
 					getdir_start = clock();		
-					getdir(rootPath[j].c_str(), path);
+					getdir(rootPath[j].c_str(), path[j]);
 					getdir_finish = clock();
 					getdir_totaltime = (double)(getdir_finish - getdir_start) / CLOCKS_PER_SEC;
 					search_file_start = clock();
 					// removeSame(path, noSearchPath);
-					removeSame(noSearchFile, path);
-					for(int k = 0; k < path.size(); ++k){
-						for(int l = 0; l < path[k].sfname.size(); ++l)
-							search(path[k].spath, path[k].sfname[l], findStr[strIndex], fun[funIndex]);
+					removeSame(noSearchFile, path[j]);
+					for(int k = 0; k < path[j].size(); ++k){
+						for(int l = 0; l < path[j][k].sfname.size(); ++l)
+							search(path[j][k].spath, path[j][k].sfname[l], findStr[strIndex], fun[funIndex]);
 					}
 					search_file_finish = clock();
 					search_totaltime = (double)(search_file_finish - search_file_start) / CLOCKS_PER_SEC;
 				}
 			}
-
-			//get file number
-			for(int i = 0; i < path.size(); i++){
-				total_file += path[i].sfname.size();
+			//get file number			
+			for(int i = 0; i < path.size(); ++i){
+				for (size_t j = 0; j < path[i].size(); ++j){
+					total_file += path[i][j].sfname.size();
+				}			
 			}
 		}
 		else{
@@ -312,47 +325,47 @@ void search(const std::string&cPath, const std::string&filename, const std::stri
 #endif
 	}
 	int find_str_len = lpstr.length();
+	int contentLineCount = linage(content);
 	for(int i = 0; i < str.size(); i++){
-		if(!isCommit(str[i].c_str(), str[i].length())){
-			lpStart = strstr(content, str[i].c_str());
-			line = linage(content) - linage(lpStart) + 1;
+		// if(!isCommit(str[i].c_str(), str[i].length())){//都已经移除注释内容了为什么还要检查？
+		lpStart = strstr(content, str[i].c_str());
+		line = contentLineCount - linage(lpStart) + 1;
 #ifdef __linux
-			str[i].insert(str[i].find(lpstr), "\e[31m");
-			str[i].insert(str[i].find(lpstr) + find_str_len, "\e[0m");
+		str[i].insert(str[i].find(lpstr), "\e[31m");
+		str[i].insert(str[i].find(lpstr) + find_str_len, "\e[0m");
 #endif
-			printf("%d:%s\n",line, str[i].c_str());
-		}
+		printf("%d:%s\n",line, str[i].c_str());
+		// }
 	}
 	delete[]content;
 }
-bool isFun(const char *lpstr, int str_size, const char *fun_name){
-	bool bIsFun = false;
-	char *buffer = new char[str_size + 1];
-	memcpy(buffer, lpstr, str_size);
-	buffer[str_size] = 0;
-	if(strchr(buffer, '(')){
-		char *p = strstr(buffer, fun_name);//不知道为什么，复制到buffer的内容居然不包含函数名。将直接跳过这样的内容
-		if(p){
-			for(p += strlen(fun_name); *p && *p != '('; ++p){
-				if(*p != ' ' && !isalpha(*p)){
-					bIsFun = false;
-					break;
-				}
-			}
-			if(*p == '(' && *(p + 1) != ')')bIsFun = true;
-		}
-	}
-	delete[]buffer;
-	return bIsFun;
-/*
-	char lpReg[100] = {0};
-	sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*)?[;]?[\r]?", fun_name);
-	std::regex reg(lpReg);
-	std::smatch result;
-	std::string str(lpstr, str_size);
-	return regex_match(str, result, reg);
-*/
-}
+// bool isFun(const char *lpstr, int str_size, const char *fun_name){
+	// bool bIsFun = false;
+	// char *buffer = new char[str_size + 1];
+	// memcpy(buffer, lpstr, str_size);
+	// buffer[str_size] = 0;
+	// if(strchr(buffer, '(')){
+	// 	char *p = strstr(buffer, fun_name);//不知道为什么，复制到buffer的内容居然不包含函数名。将直接跳过这样的内容
+	// 	if(p){
+	// 		for(p += strlen(fun_name); *p && *p != '('; ++p){
+	// 			if(*p != ' ' && !isalpha(*p)){
+	// 				bIsFun = false;
+	// 				break;
+	// 			}
+	// 		}
+	// 		if(*p == '(' && *(p + 1) != ')')bIsFun = true;
+	// 	}
+	// }
+	// delete[]buffer;
+	// return bIsFun;
+	//搜索效率
+// 	char lpReg[100] = {0};
+// 	sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*)?[;]?[\r]?", fun_name);
+// 	std::regex reg(lpReg);
+// 	std::smatch result;
+// 	std::string str(lpstr, str_size);
+// 	return regex_match(str, result, reg);
+// }
 //--前 ++后
 /*{{{*/
 const char *movepointer(const char *p, char ch, bool bfront){
@@ -367,27 +380,45 @@ const char *movepointer(const char *p, char ch, bool bfront){
 }
 /*}}}*/
 void search_fun(const std::string&content, const std::string&lpstr, std::vector<std::string>&str){
+	std::smatch result;
+	char lpReg[100] = {0};
 	const char *lpStart = content.c_str();
+	sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*)[\n]?.*;", lpstr.c_str());//无法匹配到参数用回车隔开的函数声明
+	// sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*[\n]?.*[\n]?.*[\n]?.*[\n]?.*[\n]?.*)[\n]?.*;", lpstr.c_str());//可能存在正则表达式匹配死循环的情况
+	std::regex reg(lpReg);
 	while((lpStart = strstr(lpStart, lpstr.c_str()))){
-		//---判断找到的字符串是否是函数
-//		printf("%.*s\n", 50, lpStart);
+// 		//---判断找到的字符串是否是函数
+// //		printf("%.*s\n", 50, lpStart);
 		lpStart = movepointer(lpStart, '\n', true);lpStart++;
 		int lineSize = strcspn(lpStart, "\n");
-		if(*lpStart != '#'){
-			if(memchr(lpStart, '\\', lineSize) || !memchr(lpStart, '(', lineSize)){
-				lpStart += lineSize + 1;
-				continue;
-			}
-			int len = strcspn(lpStart, ";");
-			if(len < lineSize - 1){
-				lpStart += lineSize + 1;
-				continue;
-			}
-			if(lpstr.find('(') != std::string::npos || isFun(lpStart, len + 1, lpstr.c_str())){
+		int len = strcspn(lpStart, ";");
+		// sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*)?[;]?[\r]?", lpstr.c_str());//匹配不到函数声明，而是一堆调用
+		// sprintf(lpReg, ".*%s.*", lpstr.c_str());//匹配不到函数声明，而是一堆调用
+		// sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*)?[\r]?[;]?[\r]?", lpstr.c_str());//匹配不到函数声明，而是一堆调用
+		std::string regexStr(lpStart, len + 1);
+		// std::cout << regexStr << std::endl;
+		//试图手动过滤一些不匹配的字符串
+		std::size_t pos = regexStr.find('=', 0);//过滤左括号前有=号的字符串
+		// if(pos != std::string::npos){
+		// 	printf("h\n");
+		// }
+		if((std::string::npos ==  pos|| pos > regexStr.find('(', 0)) && std::string::npos == regexStr.find("return", 0)){
+			if(regex_match(regexStr, result, reg)){
 				std::string _str(lpStart, len + 1);
 				str.push_back(_str);
 			}
 		}
+// 		if(*lpStart != '#'){
+// 			if(memchr(lpStart, '\\', lineSize) || !memchr(lpStart, '(', lineSize)){
+// 				lpStart += lineSize + 1;
+// 				continue;
+// 			}
+// 			int len = strcspn(lpStart, ";");
+// 			if(lpstr.find('(') != std::string::npos || isFun(lpStart, len + 1, lpstr.c_str())){
+// 				std::string _str(lpStart, len + 1);
+// 				str.push_back(_str);
+// 			}
+		// }
 		lpStart += lineSize + 1;
 	}
 }
@@ -528,10 +559,15 @@ void remove_comment(char *content){
 	while((lpStart = strstr(lpStart, "//"))){
 		char *p = strchr(lpStart, '\n');
 		if(p){
+			// *p = 0;
+			// movepointer();
+			// if(strchr(lpStart, '\\')){//如果注释后面带一个\符号的话，说明下一行也是注释。对下一行也需要这样检查
+
+			// }
 			p += 1;
 			int len = strlen(p);
 			temp = new char[len + 1];
-			memset(temp, 0, len + 1);
+			// memset(temp, 0, len + 1);
 			strcpy(temp, p);
 			strcpy(lpStart, temp);
 			lpStart[len] = 0;
@@ -546,7 +582,7 @@ void remove_comment(char *content){
 			p += 2;
 			int len = strlen(p);
 			temp = new char[len + 1];
-			memset(temp, 0, len + 1);
+			// memset(temp, 0, len + 1);
 			strcpy(temp, p);
 			strcpy(lpStart, temp);
 			lpStart[len] = 0;
