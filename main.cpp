@@ -106,10 +106,10 @@ int main(int argc, char *argv[]){
 	get_option_val(argc, argv, PATH_OPTION, rootPath);
 
 	if(rootPath.empty()){//用户未指定目录就从默认的目录查找
-#if __linux
+#ifdef __linux
 		rootPath.push_back(DEFAULT_PATH);
 #endif
-#if WIN32
+#ifdef WIN32
 		rootPath.push_back(getenv("include"));
 		if(rootPath.empty()){
 			printf("not found environment variable:include, please specify include path or other path\n");
