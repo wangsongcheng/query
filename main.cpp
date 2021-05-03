@@ -92,17 +92,16 @@ int main(int argc, char *argv[]){
 	std::vector<std::string> noSearchFile;// = { "vulkan_core.h" };
 	/*
 		目前的程序，不希望用户通过-n选项指定其他路径的文件。需要指定其他路径，必须通过-d+-n选项
-		指定多个路径时，只会搜索第一个路径
+		*.h
 
-		指定多个路径，多个文件时。
-			如何知道用户是，一个文件多个路径搜索。还是一个路径一个文件搜索
-			目前的程序，是:一个文件多个路径搜索
+		如果用户指定了路径和文件名。但希望搜索该路径下所有文件以及搜索指定的文件名？
+		目前的程序都是直接将路径和指定的文件名绑定
 	*/
 
 	get_option_val(argc, argv, "-n", searchFile);
 	// get_option_val(argc, argv, "--d", noSearchPath);
 	get_option_val(argc, argv, "--n", noSearchFile);
-
+	//上面获取的有可能是正则表达式,
 	
 	get_option_val(argc, argv, "-d", rootPath);
 
@@ -339,8 +338,38 @@ void search(const std::string&cPath, const std::string&filename, const std::stri
 	}
 	delete[]content;
 }
-// bool isFun(const char *lpstr, int str_size, const char *fun_name){
-	// bool bIsFun = false;
+bool isFun(const std::string&str, const char *fun_name){
+	bool bIsFun = false;
+	/*
+		函数:返回类型 函数名(零个或多个参数,可能带回车符);
+		void (*(*fun(...))(...))(...) ;
+
+
+		//---------
+		函数参数必须是带类型的，这里没有判断
+	*/
+	size_t funNameSize = strlen(fun_name);
+	size_t funNamePos = str.find(fun_name);
+	size_t c = str.find('(', funNamePos + funNameSize);
+	size_t _c = str.find(')', funNamePos + funNameSize);
+	//排除连基本的函数声明特征都没有的字符串(没有指定的函数名没有一对括号)
+	if(std::string::npos != funNamePos && std::string::npos != c && std::string::npos != _c){
+		//排除不可能出现在函数声明的字符
+		if(std::string::npos == str.find('.') && std::string::npos == str.find("#") && std::string::npos == str.find("->") && std::string::npos == str.find("typedef") && std::string::npos == str.find(':') && std::string::npos == str.find('!') && std::string::npos == str.find('}') && std::string::npos == str.find('{')){
+			//等号有可能是默认参数。必须额外判断
+			size_t p = str.find('=');
+			if(std::string::npos == p || (p > c && p < _c)){//找到的括号一定在查找的字符串后面
+				//排除括号内明显不是参数声明的字符串(有逗号但没有空格)
+				size_t comma = str.find(',', c);
+				size_t space = str.find(' ', c);
+				// if(comma != std::string::npos)
+				bIsFun = true;
+
+				// std::string fun(&str[c + 1], str.find(')') - c);
+				// p = fun.find(',');
+			}
+		}
+	}
 	// char *buffer = new char[str_size + 1];
 	// memcpy(buffer, lpstr, str_size);
 	// buffer[str_size] = 0;
@@ -357,7 +386,7 @@ void search(const std::string&cPath, const std::string&filename, const std::stri
 	// 	}
 	// }
 	// delete[]buffer;
-	// return bIsFun;
+	return bIsFun;
 	//搜索效率
 // 	char lpReg[100] = {0};
 // 	sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*)?[;]?[\r]?", fun_name);
@@ -365,7 +394,7 @@ void search(const std::string&cPath, const std::string&filename, const std::stri
 // 	std::smatch result;
 // 	std::string str(lpstr, str_size);
 // 	return regex_match(str, result, reg);
-// }
+}
 //--前 ++后
 /*{{{*/
 const char *movepointer(const char *p, char ch, bool bfront){
@@ -380,34 +409,37 @@ const char *movepointer(const char *p, char ch, bool bfront){
 }
 /*}}}*/
 void search_fun(const std::string&content, const std::string&lpstr, std::vector<std::string>&str){
-	std::smatch result;
-	char lpReg[100] = {0};
+	// std::smatch result;
+	// char lpReg[100] = {0};
 	const char *lpStart = content.c_str();
-	sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*)[\n]?.*;", lpstr.c_str());//无法匹配到参数用回车隔开的函数声明
+	// sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*)?[\n]?.*[;]?[\r]?", lpstr.c_str());
 	// sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*[\n]?.*[\n]?.*[\n]?.*[\n]?.*[\n]?.*)[\n]?.*;", lpstr.c_str());//可能存在正则表达式匹配死循环的情况
-	std::regex reg(lpReg);
+	// std::regex reg(lpReg);
 	while((lpStart = strstr(lpStart, lpstr.c_str()))){
 // 		//---判断找到的字符串是否是函数
 // //		printf("%.*s\n", 50, lpStart);
 		lpStart = movepointer(lpStart, '\n', true);lpStart++;
 		int lineSize = strcspn(lpStart, "\n");
 		int len = strcspn(lpStart, ";");
-		// sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*)?[;]?[\r]?", lpstr.c_str());//匹配不到函数声明，而是一堆调用
-		// sprintf(lpReg, ".*%s.*", lpstr.c_str());//匹配不到函数声明，而是一堆调用
-		// sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*)?[\r]?[;]?[\r]?", lpstr.c_str());//匹配不到函数声明，而是一堆调用
-		std::string regexStr(lpStart, len + 1);
-		// std::cout << regexStr << std::endl;
-		//试图手动过滤一些不匹配的字符串
-		std::size_t pos = regexStr.find('=', 0);//过滤左括号前有=号的字符串
-		// if(pos != std::string::npos){
-		// 	printf("h\n");
-		// }
-		if((std::string::npos ==  pos|| pos > regexStr.find('(', 0)) && std::string::npos == regexStr.find("return", 0)){
-			if(regex_match(regexStr, result, reg)){
-				std::string _str(lpStart, len + 1);
-				str.push_back(_str);
-			}
+		if(isFun(std::string(lpStart, len + 1), lpstr.c_str())){
+			str.push_back(std::string(lpStart, len + 1));
 		}
+		// // sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*)?[;]?[\r]?", lpstr.c_str());//匹配不到函数声明，而是一堆调用
+		// // sprintf(lpReg, ".*%s.*", lpstr.c_str());//匹配不到函数声明，而是一堆调用
+		// // sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*)?[\r]?[;]?[\r]?", lpstr.c_str());//匹配不到函数声明，而是一堆调用
+		// std::string regexStr(lpStart, len + 1);
+		// // std::cout << regexStr << std::endl;
+		// //试图手动过滤一些不匹配的字符串
+		// std::size_t pos = regexStr.find('=', 0);//过滤左括号前有=号的字符串
+		// // if(pos != std::string::npos){
+		// // 	printf("h\n");
+		// // }
+		// if((std::string::npos ==  pos|| pos > regexStr.find('(', 0)) && std::string::npos == regexStr.find("return", 0)){
+		// 	if(regex_match(regexStr, result, reg)){
+		// 		std::string _str(lpStart, len + 1);
+		// 		str.push_back(_str);
+		// 	}
+		// }
 // 		if(*lpStart != '#'){
 // 			if(memchr(lpStart, '\\', lineSize) || !memchr(lpStart, '(', lineSize)){
 // 				lpStart += lineSize + 1;
@@ -419,7 +451,18 @@ void search_fun(const std::string&content, const std::string&lpstr, std::vector<
 // 				str.push_back(_str);
 // 			}
 		// }
-		lpStart += lineSize + 1;
+		/*
+			加入查找的是strcpy，在以下字符串查找。因为分号比strcpy的位置还前，导致lpStart无法找到下一个strcpy，故而进入死循环。
+			这也说明在strpy这一行前面有分号。可以说明查找的不是函数
+			//一般而言，函数声明的分号一般都会在回车符结尾
+			------
+			\n  if ( _arg ) { this->var = new char[ strlen(_arg) + 1 ]; strcpy(this->var, _arg); }
+		*/
+		if(len < lineSize - 1){
+			lpStart += lineSize;
+			continue;
+		}
+		lpStart += len + 1;
 	}
 }
 /*{{{*/
