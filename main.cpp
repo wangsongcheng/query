@@ -98,12 +98,12 @@ int main(int argc, char *argv[]){
 		目前的程序都是直接将路径和指定的文件名绑定
 	*/
 
-	get_option_val(argc, argv, "-n", searchFile);
+	get_option_val(argc, argv, FILE_OPTION, searchFile);
 	// get_option_val(argc, argv, "--d", noSearchPath);
-	get_option_val(argc, argv, "--n", noSearchFile);
+	get_option_val(argc, argv, "-nn", noSearchFile);
 	//上面获取的有可能是正则表达式,
 	
-	get_option_val(argc, argv, "-d", rootPath);
+	get_option_val(argc, argv, PATH_OPTION, rootPath);
 
 	if(rootPath.empty()){//用户未指定目录就从默认的目录查找
 #if __linux
@@ -353,20 +353,18 @@ bool isFun(const std::string&str, const char *fun_name){
 	size_t c = str.find('(', funNamePos + funNameSize);
 	size_t _c = str.find(')', funNamePos + funNameSize);
 	//排除连基本的函数声明特征都没有的字符串(没有指定的函数名没有一对括号)
-	if(std::string::npos != funNamePos && std::string::npos != c && std::string::npos != _c){
+	if(std::string::npos != funNamePos && std::string::npos != c && std::string::npos != _c && std::string::npos == str.find("if (") && std::string::npos == str.find("return ")){
 		//排除不可能出现在函数声明的字符
 		if(std::string::npos == str.find('.') && std::string::npos == str.find("#") && std::string::npos == str.find("->") && std::string::npos == str.find("typedef") && std::string::npos == str.find(':') && std::string::npos == str.find('!') && std::string::npos == str.find('}') && std::string::npos == str.find('{')){
 			//等号有可能是默认参数。必须额外判断
 			size_t p = str.find('=');
 			if(std::string::npos == p || (p > c && p < _c)){//找到的括号一定在查找的字符串后面
-				//排除括号内明显不是参数声明的字符串(有逗号但没有空格)
-				size_t comma = str.find(',', c);
-				size_t space = str.find(' ', c);
-				// if(comma != std::string::npos)
-				bIsFun = true;
-
-				// std::string fun(&str[c + 1], str.find(')') - c);
-				// p = fun.find(',');
+				for (size_t i = 0; i < funNamePos - 1; ++i){//看看前面是否有返回类型
+					if(str[i] != ' ' && str[i] != '\t'){
+						bIsFun = true;
+						break;
+					}
+				}
 			}
 		}
 	}
