@@ -356,7 +356,8 @@ bool isFun(const std::string&str, const char *fun_name){
 	if(std::string::npos != funNamePos && std::string::npos != c && std::string::npos != _c && std::string::npos == str.find("if (") && std::string::npos == str.find("return ")){
 		//排除不可能出现在函数声明的字符
 		size_t comma = str.find(',');
-		if((comma == std::string::npos || c < comma) && std::string::npos == str.find('.') && std::string::npos == str.find("#") && std::string::npos == str.find("->") && std::string::npos == str.find("typedef") && std::string::npos == str.find(':') && std::string::npos == str.find('!') && std::string::npos == str.find('}') && std::string::npos == str.find('{')){
+		size_t point = str.find('.');
+		if((comma == std::string::npos || c < comma) && (std::string::npos == point || str[point + 1] == '.') && std::string::npos == str.find("#") && std::string::npos == str.find("->") && std::string::npos == str.find("typedef") && std::string::npos == str.find(':') && std::string::npos == str.find('!') && std::string::npos == str.find('}') && std::string::npos == str.find('{')){
 			//等号有可能是默认参数。必须额外判断
 			size_t p = str.find('=');
 			if(std::string::npos == p || (p > c && p < _c)){//找到的括号一定在查找的字符串后面
