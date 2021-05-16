@@ -90,7 +90,7 @@ void removeSamePath(const std::vector<std::string>&in, std::vector<search_infor>
 		}
 	}
 }
-int main(int argc, char *argv[]){
+int main(int argc, char *argv[], char *envp[]){//envp环境变量表
 	double getdir_totaltime = 0.0f, search_totaltime = 0.0f;
 	clock_t getdir_start, getdir_finish, search_file_start, search_file_finish;//time count
 	
