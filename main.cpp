@@ -31,7 +31,8 @@
 #define ENUM_OPTION "-e"
 #define CLASS_OPTION "-c"
 #define NAMESPACE_OPTION "--ns"
-#define NO_SEARCH_FILE_OPTION "--n"
+#define NO_SEARCH_FILE_OPTION "-nsf"
+#define NO_SEARCH_PATH_OPTION "-nd"
 #define PATH_OPTION "-d"
 #define FILE_OPTION "-sf"
 enum Search_Type{
@@ -64,7 +65,7 @@ bool isInvalid(int argc, char *argv[], const std::vector<std::string>&option);
 const char *movepointer(const char *p, char ch, bool bfront);
 void remove_comment(char *content);
 void removeSame(const std::vector<std::string>&in, std::vector<std::string>&out);
-void removeSame(const std::vector<std::string>&in, std::vector<search_infor>&out);
+// void removeSame(const std::vector<std::string>&in, std::vector<search_infor>&out);
 void search(const std::string&cPath, const std::string&filename, const std::string&lpstr, void(*fun)(const std::string&content, const std::string&lpstr, std::vector<std::string>&str));
 void search_fun(const std::string&content, const std::string&lpstr, std::vector<std::string>&str);
 void search_macro(const std::string&content, const std::string&lpstr, std::vector<std::string>&str);
@@ -75,6 +76,20 @@ void SetTextColor(WORD color);
 #endif
 std::string searchStructString = "struct";
 //char *strrpc(char *str,char *oldstr,char *newstr);
+void removeSameFile(const std::vector<std::string>&in, std::vector<search_infor>&out){
+	for (size_t i = 0; i < out.size(); ++i){
+		removeSame(in, out[i].sfname);
+	}
+}
+void removeSamePath(const std::vector<std::string>&in, std::vector<search_infor>&out){
+	for (size_t i = 0; i < in.size(); ++i){
+		for (size_t j = 0; j < out.size(); ++j){
+			if(in[i] == out[j].spath){
+				out.erase(out.begin() + j);
+			}	
+		}
+	}
+}
 int main(int argc, char *argv[]){
 	double getdir_totaltime = 0.0f, search_totaltime = 0.0f;
 	clock_t getdir_start, getdir_finish, search_file_start, search_file_finish;//time count
@@ -91,7 +106,7 @@ int main(int argc, char *argv[]){
 	std::vector<std::string> noSearchPath;
 	std::vector<std::string> noSearchFile;// = { "vulkan_core.h" };
 	/*
-		目前的程序，不希望用户通过-n选项指定其他路径的文件。需要指定其他路径，必须通过-d+-n选项
+		目前的程序，不希望用户通过-n选项指定其他路径的文件。需要指定其他路径，必须通过-d+-sf选项
 		*.h
 
 		如果用户指定了路径和文件名。但希望搜索该路径下所有文件以及搜索指定的文件名？
@@ -99,10 +114,9 @@ int main(int argc, char *argv[]){
 	*/
 
 	get_option_val(argc, argv, FILE_OPTION, searchFile);
-	// get_option_val(argc, argv, "--d", noSearchPath);
-	get_option_val(argc, argv, "-nn", noSearchFile);
+	get_option_val(argc, argv, NO_SEARCH_PATH_OPTION, noSearchPath);
+	get_option_val(argc, argv, NO_SEARCH_FILE_OPTION, noSearchFile);
 	//上面获取的有可能是正则表达式,
-	
 	get_option_val(argc, argv, PATH_OPTION, rootPath);
 
 	if(rootPath.empty()){//用户未指定目录就从默认的目录查找
@@ -125,7 +139,7 @@ int main(int argc, char *argv[]){
 		search_type_define,
 	};
 	int total_file = 0;
-	//支持查询多个相同选项：-f strcpy -f printf -m MAXBYTE -m A
+	//支持查询多个相同选项：-f strcpy printf -m MAXBYTE -m A
 	for (size_t i = 0; i < option.size(); ++i){
 		//判断需要查询的类型
 		std::vector<std::string> findStr;
@@ -147,8 +161,8 @@ int main(int argc, char *argv[]){
 					getdir_finish = clock();
 					getdir_totaltime = (double)(getdir_finish - getdir_start) / CLOCKS_PER_SEC;
 					search_file_start = clock();
-					// removeSame(path, noSearchPath);
-					removeSame(noSearchFile, path[j]);
+					removeSamePath(noSearchPath, path[j]);
+					removeSameFile(noSearchFile, path[j]);
 					for(int k = 0; k < path[j].size(); ++k){
 						for(int l = 0; l < path[j][k].sfname.size(); ++l)
 							search(path[j][k].spath, path[j][k].sfname[l], findStr[strIndex], fun[funIndex]);
@@ -195,18 +209,6 @@ void removeSame(const std::vector<std::string>&in, std::vector<std::string>&out)
 				break;
 			}
 		}		
-	}
-}
-void removeSame(const std::vector<std::string>&in, std::vector<search_infor>&out){
-	for (size_t j = 0; j < in.size(); ++j){
-		for (size_t i = 0; i < out.size(); ++i){
-			for (size_t l = 0; l < out[i].sfname.size(); ++l){
-				if(in[j] == out[i].sfname[l]){
-					out[i].sfname.erase(out[i].sfname.begin() + l);
-					break;
-				}
-			}			
-		}
 	}
 }
 /*{{{*/
@@ -553,7 +555,8 @@ bool get_val_in_line(int argc, char *argv[], const std::string&lpsstr, std::stri
 void help(){
 	printf("format:option string string [option][string]...\n");
 	printf("example:query -f strcpy strcat -s VkDeviceC -f vkCmdDraw -s VkDeviceCreateInfo -sf string.h vulkan_core.h\n");
-	printf("--n表示不在该文件内搜索\n");
+	printf("-nd表示不在该路及内搜索\n");
+	printf("-nsf表示不在该文件内搜索\n");
 	printf("option:\n");
 	printf("\t'-e' indicate search enum\n");
 	printf("\t'-e' indicate search union\n");
