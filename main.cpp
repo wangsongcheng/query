@@ -33,7 +33,7 @@
 #define NAMESPACE_OPTION "--ns"
 #define NO_SEARCH_FILE_OPTION "--n"
 #define PATH_OPTION "-d"
-#define FILE_OPTION "-n"
+#define FILE_OPTION "-sf"
 enum Search_Type{
 	INVALID_VAL = -1,
 	searchFun = 0,
@@ -552,7 +552,7 @@ bool get_val_in_line(int argc, char *argv[], const std::string&lpsstr, std::stri
 }
 void help(){
 	printf("format:option string string [option][string]...\n");
-	printf("example:query -f strcpy strcat -f vkCmdDraw -s VkDeviceCreateInfo - n string.h vulkan_core.h\n");
+	printf("example:query -f strcpy strcat -s VkDeviceC -f vkCmdDraw -s VkDeviceCreateInfo -sf string.h vulkan_core.h\n");
 	printf("--n表示不在该文件内搜索\n");
 	printf("option:\n");
 	printf("\t'-e' indicate search enum\n");
@@ -564,7 +564,7 @@ void help(){
 	printf("\t'-d' indicate search directory\n");
 	printf("\t'-ns' indicate search namespace\n");
 	printf("\t'-t' indicate search type define\n");
-	printf("\t'-n' indicate search in that file;\n");
+	printf("\t'-sf' indicate search in that file;\n");
 }
 bool isInvalid(int argc, char *argv[], const std::vector<std::string>&option){
 	int ioption = 0;
