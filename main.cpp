@@ -124,8 +124,11 @@ int main(int argc, char *argv[], char *envp[]){//envp环境变量表
 		rootPath.push_back(DEFAULT_PATH);
 #endif
 #ifdef WIN32
-		rootPath.push_back(getenv("include"));
-		if(rootPath.empty()){
+		const char *ePath = getenv("include");
+		if (ePath) {
+			rootPath.push_back(ePath);
+		}
+		else{
 			printf("not found environment variable:include, please specify include path or other path\n");
 			exit(-1);
 		}
