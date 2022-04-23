@@ -556,26 +556,26 @@ bool get_val_in_line(int argc, char *argv[], const std::string&lpsstr, std::stri
 	return false;
 }
 void help(){
-	printf("format:option string string [option][string]...\n");
+	printf("format:[option] string [string] [option][string]...\n");
 	printf("example:query -f strcpy strcat -s VkDeviceC -f vkCmdDraw -s VkDeviceCreateInfo -sf string.h vulkan_core.h\n");
 	printf("-nd表示不在该路及内搜索\n");
 	printf("-nsf表示不在该文件内搜索\n");
 	printf("option:\n");
-	printf("\t'-e' indicate search enum\n");
-	printf("\t'-e' indicate search union\n");
-	printf("\t'-c' indicate search class\n");
-	printf("\t'-m' indicate search macro\n");
-	printf("\t'-f' indicate search function\n");
-	printf("\t'-s' indicate search structure\n");
+	printf("\t'%s' indicate search enum\n", ENUM_OPTION);
+	printf("\t'%s' indicate search union\n", UNION_OPTION);
+	printf("\t'%s' indicate search class\n", CLASS_OPTION);
+	printf("\t'%s' indicate search macro\n", MACRO_OPTION);
+	printf("\t'%s' indicate search function\n", FUNCTION_OPTION);
+	printf("\t'%s' indicate search structure\n", STRUCTURE_OPTION);
 	printf("\t'-d' indicate search directory\n");
 	printf("\t'-ns' indicate search namespace\n");
-	printf("\t'-t' indicate search type define\n");
+	printf("\t'%s' indicate search type define\n", TYPEDEF_OPTION);
 	printf("\t'-sf' indicate search in that file;\n");
 }
 bool isInvalid(int argc, char *argv[], const std::vector<std::string>&option){
 	int ioption = 0;
 	int optCount = 0;
-	if(argc < 3)return true;
+	if(argc < 2)return true;
 	for(int j = 0; j < option.size(); j++){
 		if(INVALID_VAL == get_index_in_line(argc, argv, option[j]))++optCount;
 		for(int i = 1; i < argc; i++){
