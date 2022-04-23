@@ -568,7 +568,7 @@ void help(){
 	printf("\t'%s' indicate search function\n", FUNCTION_OPTION);
 	printf("\t'%s' indicate search structure\n", STRUCTURE_OPTION);
 	printf("\t'-d' indicate search directory\n");
-	printf("\t'-ns' indicate search namespace\n");
+	printf("\t'%s' indicate search namespace\n", NAMESPACE_OPTION);
 	printf("\t'%s' indicate search type define\n", TYPEDEF_OPTION);
 	printf("\t'-sf' indicate search in that file;\n");
 }
