@@ -30,11 +30,12 @@
 #define UNION_OPTION "-u"
 #define ENUM_OPTION "-e"
 #define CLASS_OPTION "-c"
-#define NAMESPACE_OPTION "--ns"
-#define NO_SEARCH_FILE_OPTION "-nsf"
-#define NO_SEARCH_PATH_OPTION "-nd"
+#define NAMESPACE_OPTION "-ns"
+#define ALL_OPTION "-a"
+// #define NO_SEARCH_FILE_OPTION "-nsf"
+// #define NO_SEARCH_PATH_OPTION "-nsd"
 #define PATH_OPTION "-d"
-#define FILE_OPTION "-sf"
+// #define FILE_OPTION "-sf"
 enum Search_Type{
 	INVALID_VAL = -1,
 	searchFun = 0,
@@ -102,9 +103,9 @@ int main(int argc, char *argv[], char *envp[]){//envp环境变量表
 	}
 	
 	std::vector<std::string> rootPath;
-	std::vector<std::string> searchFile;
-	std::vector<std::string> noSearchPath;
-	std::vector<std::string> noSearchFile;// = { "vulkan_core.h" };
+	// std::vector<std::string> searchFile;
+	// std::vector<std::string> noSearchPath;
+	// std::vector<std::string> noSearchFile;// = { "vulkan_core.h" };
 	/*
 		目前的程序，不希望用户通过-n选项指定其他路径的文件。需要指定其他路径，必须通过-d+-sf选项
 		*.h
@@ -112,10 +113,9 @@ int main(int argc, char *argv[], char *envp[]){//envp环境变量表
 		如果用户指定了路径和文件名。但希望搜索该路径下所有文件以及搜索指定的文件名？
 		目前的程序都是直接将路径和指定的文件名绑定
 	*/
-
-	get_option_val(argc, argv, FILE_OPTION, searchFile);
-	get_option_val(argc, argv, NO_SEARCH_PATH_OPTION, noSearchPath);
-	get_option_val(argc, argv, NO_SEARCH_FILE_OPTION, noSearchFile);
+	// get_option_val(argc, argv, FILE_OPTION, searchFile);
+	// get_option_val(argc, argv, NO_SEARCH_PATH_OPTION, noSearchPath);
+	// get_option_val(argc, argv, NO_SEARCH_FILE_OPTION, noSearchFile);
 	//上面获取的有可能是正则表达式,
 	get_option_val(argc, argv, PATH_OPTION, rootPath);
 
@@ -134,14 +134,14 @@ int main(int argc, char *argv[], char *envp[]){//envp环境变量表
 		}
 #endif
 	}
-	removeSame(noSearchFile, searchFile);
+	// removeSame(noSearchFile, searchFile);
 	void (*fun[])(const std::string&content, const std::string&lpstr, std::vector<std::string>&str) = {
 		search_fun,
 		search_macro,
 		search_struct,//class、enum、namespace
 		search_type_define,
 	};
-	int total_file = 0;
+	uint32_t total_file = 0;
 	//支持查询多个相同选项：-f strcpy printf -m MAXBYTE -m A
 	for (size_t i = 0; i < option.size(); ++i){
 		//判断需要查询的类型
@@ -154,47 +154,52 @@ int main(int argc, char *argv[], char *envp[]){//envp环境变量表
 			searchStructString = s[funIndex - 4];
 			funIndex = searchStruct;//------note:
 		}
-		if(searchFile.empty()){
-			//没有指定文件名称，需要查找目录下的所有文件名
-			std::vector<std::vector<search_infor>>path(2);
-			for(int strIndex = 0; strIndex < findStr.size(); ++strIndex){
-				for (size_t j = 0; j < rootPath.size(); ++j){
-					getdir_start = clock();		
-					getdir(rootPath[j].c_str(), path[j]);
-					getdir_finish = clock();
-					getdir_totaltime = (double)(getdir_finish - getdir_start) / CLOCKS_PER_SEC;
-					search_file_start = clock();
-					removeSamePath(noSearchPath, path[j]);
-					removeSameFile(noSearchFile, path[j]);
-					for(int k = 0; k < path[j].size(); ++k){
-						for(int l = 0; l < path[j][k].sfname.size(); ++l)
-							search(path[j][k].spath, path[j][k].sfname[l], findStr[strIndex], fun[funIndex]);
-					}
-					search_file_finish = clock();
-					search_totaltime = (double)(search_file_finish - search_file_start) / CLOCKS_PER_SEC;
-				}
-			}
-			//get file number			
-			for(int i = 0; i < path.size(); ++i){
-				for (size_t j = 0; j < path[i].size(); ++j){
-					total_file += path[i][j].sfname.size();
-				}			
-			}
+		//后面真正用来搜索的路径
+		std::vector<search_infor>searchPath;//需要搜索指定的所有根目录的数量//一个就能代表一个文件夹以及里面所有文件
+		//支持多个目录、的多个文件//-a表示找所有类型。多执行几次不同类型的search函数即可
+		// if(searchFile.empty()){
+		//没有指定文件名称，需要查找目录下的所有文件名
+		getdir_start = clock();
+		for (size_t uiRootPath = 0; uiRootPath < rootPath.size(); ++uiRootPath){
+			getdir(rootPath[uiRootPath].c_str(), searchPath);
+			total_file += searchPath[uiRootPath].sfname.size();
 		}
-		else{
-			search_file_start = clock();
-			total_file = searchFile.size() * rootPath.size();
-			for(int strIndex = 0; strIndex < findStr.size(); ++strIndex){
-				for (size_t j = 0; j < rootPath.size(); ++j){
-					for (size_t k = 0; k < searchFile.size(); ++k){
-						search(rootPath[j], searchFile[k], findStr[strIndex], fun[funIndex]);
+		getdir_finish = clock();
+		getdir_totaltime = (double)(getdir_finish - getdir_start) / CLOCKS_PER_SEC;
+		// }
+		// else{
+		// 	//如果指定了文件名。就搜集起来
+		// 	for (size_t uiRootPath = 0; uiRootPath < rootPath.size(); ++uiRootPath){
+		// 		for (size_t uiSearchFile = 0; uiSearchFile < searchFile.size(); ++uiSearchFile){
+		// 			searchPath[uiRootPath].sfname.push_back(searchFile[uiSearchFile]);
+		// 		}
+		// 	}
+		// }
+		for (size_t uiFindStr = 0; uiFindStr < findStr.size(); ++uiFindStr){
+			for (size_t uiSearchPath = 0; uiSearchPath < searchPath.size(); ++uiSearchPath){
+				search_infor&dir = searchPath[uiSearchPath];
+				if(option[i] != ALL_OPTION){
+					for (size_t uiDir = 0; uiDir < dir.sfname.size(); ++uiDir){
+						search(dir.spath, dir.sfname[uiDir], findStr[uiFindStr], fun[funIndex]);
 					}
 				}
+				else{
+					for (size_t uiDir = 0; uiDir < dir.sfname.size(); ++uiDir){
+						for (size_t uiFun = 0; uiFun < sizeof(fun) / sizeof(int *); ++uiFun){
+							funIndex = (Search_Type)i;
+							if(funIndex > searchTypeDefine){
+								const char *s[] = { "union", "enum", "class", "namespace" };
+								searchStructString = s[funIndex - 4];
+							}
+							search(dir.spath, dir.sfname[uiDir], findStr[uiFindStr], fun[uiFun]);
+						}
+					}					
+				}
 			}
-			search_file_finish = clock();
-			search_totaltime = (double)(search_file_finish - search_file_start) / CLOCKS_PER_SEC;
 		}
 	}
+	search_file_finish = clock();
+	search_totaltime = (double)(search_file_finish - search_file_start) / CLOCKS_PER_SEC;
 	std::cout << "-----------------------------" << std::endl;
 	std::cout << "search path:";
 	for (size_t i = 0; i < rootPath.size(); ++i){
@@ -236,7 +241,7 @@ void getdir(const char *root, std::vector<search_infor>&path){
 					sprintf(szPath, "%s%s", infor.spath.c_str(), file->d_name);
 				getdir(szPath, path);
 			}
-			else{
+			else if(file->d_type == DT_REG){
 				infor.sfname.push_back(file->d_name);
 			}
 		}
@@ -288,32 +293,34 @@ bool isCommit(const char *pStr, int len){
 	}
 	return false;
 }
-
-// void search_file(const std::string&cPath, const char *filename){
-// 	//有路径找文件，有文件名找路径
-// }
 /*}}}*/
+uint32_t GetFileContent(const std::string&file, char *content){
+	FILE *fp = fopen(file.c_str(), "rb");
+	if(!fp){
+		perror("read file error");
+		printf("path is %s\n", file.c_str());
+		return 0;
+	}
+	int size = getfilelen(fp);
+	if(content){
+		fread(content, size, 1, fp);		
+	}
+	fclose(fp);
+	return size;
+}
 void search(const std::string&cPath, const std::string&filename, const std::string&lpstr, void(*fun)(const std::string&content, const std::string&lpstr, std::vector<std::string>&str)){
 	std::string szPath;
-	char *content = nullptr; 
+	char *content;
 	if('/' != cPath[cPath.length() - 1])
 		szPath = cPath + "/" + filename;
 	else
 		szPath = cPath + filename;
-	FILE *fp = fopen(szPath.c_str(), "rb");
-	if(!fp){
-		perror("read file error");
-		printf("path is %s\n", szPath.c_str());
-		return;
-	}
-	int size = getfilelen(fp);
+	uint32_t size = GetFileContent(szPath, nullptr);
+	if(size < 1)return;
 	content = new char[size + 1];
-	fread(content, size, 1, fp);
+	GetFileContent(szPath, content);
 	content[size] = 0;
-	fclose(fp);
-
 	remove_comment(content);
-
 	std::vector<std::string>str;
 	fun(content, lpstr, str);
 	int line;
@@ -558,19 +565,20 @@ bool get_val_in_line(int argc, char *argv[], const std::string&lpsstr, std::stri
 void help(){
 	printf("format:[option] string [string] [option][string]...\n");
 	printf("example:query -f strcpy strcat -s VkDeviceC -f vkCmdDraw -s VkDeviceCreateInfo -sf string.h vulkan_core.h\n");
-	printf("-nd表示不在该路及内搜索\n");
-	printf("-nsf表示不在该文件内搜索\n");
 	printf("option:\n");
+	// printf("%s表示不在该路及内搜索\n", NO_SEARCH_PATH_OPTION);
+	// printf("%s表示不在该文件内搜索\n", NO_SEARCH_FILE_OPTION);
+	printf("%s表示搜索所有类型\n", ALL_OPTION);
 	printf("\t'%s' indicate search enum\n", ENUM_OPTION);
 	printf("\t'%s' indicate search union\n", UNION_OPTION);
 	printf("\t'%s' indicate search class\n", CLASS_OPTION);
 	printf("\t'%s' indicate search macro\n", MACRO_OPTION);
 	printf("\t'%s' indicate search function\n", FUNCTION_OPTION);
 	printf("\t'%s' indicate search structure\n", STRUCTURE_OPTION);
-	printf("\t'-d' indicate search directory\n");
+	printf("\t'%s' indicate search directory\n", PATH_OPTION);
 	printf("\t'%s' indicate search namespace\n", NAMESPACE_OPTION);
 	printf("\t'%s' indicate search type define\n", TYPEDEF_OPTION);
-	printf("\t'-sf' indicate search in that file;\n");
+	// printf("\t'%s' indicate search in that file;\n", FILE_OPTION);
 }
 bool isInvalid(int argc, char *argv[], const std::vector<std::string>&option){
 	int ioption = 0;
@@ -603,41 +611,26 @@ int getfilelen(FILE *fp){
 	return size;
 }
 void remove_comment(char *content){
-	char *temp;
 	char *lpStart = content;
 	while((lpStart = strstr(lpStart, "//"))){
-		char *p = strchr(lpStart, '\n');
-		if(p){
-			// *p = 0;
-			// movepointer();
-			// if(strchr(lpStart, '\\')){//如果注释后面带一个\符号的话，说明下一行也是注释。对下一行也需要这样检查
-
-			// }
-			p += 1;
-			int len = strlen(p);
-			temp = new char[len + 1];
-			// memset(temp, 0, len + 1);
-			strcpy(temp, p);
-			strcpy(lpStart, temp);
-			lpStart[len] = 0;
-			delete[]temp;
+		const char *lpEnd = strstr(lpStart, "\n");
+		if(lpEnd){
+			strcpy(lpStart, lpEnd);
 		}
-		lpStart++;
+		else{
+			++lpStart;
+		}
 	}
 	lpStart = content;
 	while((lpStart = strstr(lpStart, "/*"))){
-		char *p = strstr(lpStart, "*/");
-		if(p){
-			p += 2;
-			int len = strlen(p);
-			temp = new char[len + 1];
-			// memset(temp, 0, len + 1);
-			strcpy(temp, p);
-			strcpy(lpStart, temp);
-			lpStart[len] = 0;
-			delete[]temp;
+		const char *lpEnd = strstr(lpStart, "*/");
+		if(lpEnd){
+			lpEnd += 2;
+			strcpy(lpStart, lpEnd);
 		}
-		lpStart++;
+		else{
+			++lpStart;
+		}
 	}
 }
 int linage(const std::string&content){
@@ -665,7 +658,8 @@ char *strrpc(char *str,char *oldstr,char *newstr){
 }
 */
 bool isOption(int argc, char *argv[], int index){
-	const std::vector<std::string> option = { FUNCTION_OPTION, MACRO_OPTION,  STRUCTURE_OPTION, TYPEDEF_OPTION, UNION_OPTION, ENUM_OPTION, CLASS_OPTION, NAMESPACE_OPTION,  PATH_OPTION, FILE_OPTION, NO_SEARCH_FILE_OPTION };
+	const std::vector<std::string> option = { FUNCTION_OPTION, MACRO_OPTION,  STRUCTURE_OPTION, TYPEDEF_OPTION, UNION_OPTION, ENUM_OPTION, CLASS_OPTION, NAMESPACE_OPTION,  PATH_OPTION };
+	// const std::vector<std::string> option = { FUNCTION_OPTION, MACRO_OPTION,  STRUCTURE_OPTION, TYPEDEF_OPTION, UNION_OPTION, ENUM_OPTION, CLASS_OPTION, NAMESPACE_OPTION,  PATH_OPTION, FILE_OPTION, NO_SEARCH_FILE_OPTION };
 	for(int i = 0; i < option.size(); ++i){
 		if(argv[index] == option[i]){
 			return true;
