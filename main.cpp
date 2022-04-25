@@ -21,7 +21,9 @@
 #ifdef __linux
 #define MAXBYTE 0xff
 #define MAX_PATH 360
-#define DEFAULT_PATH "/usr/include/"
+#define DEFAULT_INCLUDE_PATH_USR_INCLUDE "/usr/include/"
+#define DEFAULT_INCLUDE_PATH_USR_LOCAL_INCLUDE "/usr/local/include/"
+#define DEFAULT_INCLUDE_PATH_USR_LIB "/usr/lib/"
 #endif
 #define FUNCTION_OPTION "-f"
 #define MACRO_OPTION "-m"
@@ -45,7 +47,8 @@ enum Search_Type{
 	searchUnion,
 	searchEnum,
 	searchClass,
-	searchNameSpace
+	searchNameSpace,
+	searchAll
 };
 struct search_infor{
 	std::string spath;//search path
@@ -59,10 +62,10 @@ int get_index_in_line(int argc, char *argv[], const std::string&str, int32_t sta
 void get_option_val(int argc, char *argv[], const std::string&opt, std::vector<std::string>&out);
 int linage(const std::string&content);
 void help();
-bool isCommit(const char *pStr, int len);
+// bool isCommit(const char *pStr, int len);
 bool isOption(int argc, char *argv[], int index);
 // bool isFun(const char *lpstr, int str_size, const char *fun_name);
-bool isInvalid(int argc, char *argv[], const std::vector<std::string>&option);
+bool isInvalid(int argc, char *argv[]);
 const char *movepointer(const char *p, char ch, bool bfront);
 void remove_comment(char *content);
 void removeSame(const std::vector<std::string>&in, std::vector<std::string>&out);
@@ -76,6 +79,7 @@ void search_type_define(const std::string&content, const std::string&lpstr, std:
 void SetTextColor(WORD color);
 #endif
 std::string searchStructString = "struct";
+const std::vector<std::string> g_Option = { FUNCTION_OPTION, MACRO_OPTION,  STRUCTURE_OPTION, TYPEDEF_OPTION, UNION_OPTION, ENUM_OPTION, CLASS_OPTION, NAMESPACE_OPTION, ALL_OPTION,  PATH_OPTION };
 //char *strrpc(char *str,char *oldstr,char *newstr);
 void removeSameFile(const std::vector<std::string>&in, std::vector<search_infor>&out){
 	for (size_t i = 0; i < out.size(); ++i){
@@ -95,8 +99,8 @@ int main(int argc, char *argv[], char *envp[]){//envp环境变量表
 	double getdir_totaltime = 0.0f, search_totaltime = 0.0f;
 	clock_t getdir_start, getdir_finish, search_file_start, search_file_finish;//time count
 	
-	const std::vector<std::string> option = { FUNCTION_OPTION, MACRO_OPTION,  STRUCTURE_OPTION, TYPEDEF_OPTION, UNION_OPTION, ENUM_OPTION, CLASS_OPTION, NAMESPACE_OPTION };//, "-d", "-n"
-	if(isInvalid(argc, argv, option)){
+	// const std::vector<std::string> option = { FUNCTION_OPTION, MACRO_OPTION,  STRUCTURE_OPTION, TYPEDEF_OPTION, UNION_OPTION, ENUM_OPTION, CLASS_OPTION, NAMESPACE_OPTION };//, "-d", "-n"
+	if(isInvalid(argc, argv)){
 		printf("parameter insufficient:\n");
 		help();
 		return -1;
@@ -121,7 +125,9 @@ int main(int argc, char *argv[], char *envp[]){//envp环境变量表
 
 	if(rootPath.empty()){//用户未指定目录就从默认的目录查找
 #ifdef __linux
-		rootPath.push_back(DEFAULT_PATH);
+		rootPath.push_back(DEFAULT_INCLUDE_PATH_USR_INCLUDE);
+		rootPath.push_back(DEFAULT_INCLUDE_PATH_USR_LIB);
+		rootPath.push_back(DEFAULT_INCLUDE_PATH_USR_LOCAL_INCLUDE);
 #endif
 #ifdef WIN32
 		const char *ePath = getenv("include");
@@ -143,17 +149,11 @@ int main(int argc, char *argv[], char *envp[]){//envp环境变量表
 	};
 	uint32_t total_file = 0;
 	//支持查询多个相同选项：-f strcpy printf -m MAXBYTE -m A
-	for (size_t i = 0; i < option.size(); ++i){
+	for (size_t i = 0; i < g_Option.size() - 1; ++i){
 		//判断需要查询的类型
 		std::vector<std::string> findStr;
-		get_option_val(argc, argv, option[i], findStr);
-		//收集相关信息
-		Search_Type funIndex = (Search_Type)i;
-		if(funIndex > searchTypeDefine){
-			const char *s[] = { "union", "enum", "class", "namespace" };
-			searchStructString = s[funIndex - 4];
-			funIndex = searchStruct;//------note:
-		}
+		get_option_val(argc, argv, g_Option[i], findStr);
+		if(findStr.empty())continue;
 		//后面真正用来搜索的路径
 		std::vector<search_infor>searchPath;//需要搜索指定的所有根目录的数量//一个就能代表一个文件夹以及里面所有文件
 		//支持多个目录、的多个文件//-a表示找所有类型。多执行几次不同类型的search函数即可
@@ -162,7 +162,6 @@ int main(int argc, char *argv[], char *envp[]){//envp环境变量表
 		getdir_start = clock();
 		for (size_t uiRootPath = 0; uiRootPath < rootPath.size(); ++uiRootPath){
 			getdir(rootPath[uiRootPath].c_str(), searchPath);
-			total_file += searchPath[uiRootPath].sfname.size();
 		}
 		getdir_finish = clock();
 		getdir_totaltime = (double)(getdir_finish - getdir_start) / CLOCKS_PER_SEC;
@@ -175,26 +174,43 @@ int main(int argc, char *argv[], char *envp[]){//envp环境变量表
 		// 		}
 		// 	}
 		// }
+		search_file_start = clock();
 		for (size_t uiFindStr = 0; uiFindStr < findStr.size(); ++uiFindStr){
 			for (size_t uiSearchPath = 0; uiSearchPath < searchPath.size(); ++uiSearchPath){
 				search_infor&dir = searchPath[uiSearchPath];
-				if(option[i] != ALL_OPTION){
+				if(g_Option[i] != ALL_OPTION){
+					Search_Type funIndex = (Search_Type)i;
+					if(funIndex > searchTypeDefine ){
+						const char *s[] = { "union", "enum", "class", "namespace" };
+						searchStructString = s[funIndex - 4];
+						funIndex = searchStruct;//------note:
+					}
 					for (size_t uiDir = 0; uiDir < dir.sfname.size(); ++uiDir){
 						search(dir.spath, dir.sfname[uiDir], findStr[uiFindStr], fun[funIndex]);
 					}
 				}
 				else{
 					for (size_t uiDir = 0; uiDir < dir.sfname.size(); ++uiDir){
-						for (size_t uiFun = 0; uiFun < sizeof(fun) / sizeof(int *); ++uiFun){
-							funIndex = (Search_Type)i;
-							if(funIndex > searchTypeDefine){
+						// for (size_t uiFun = 0; uiFun < sizeof(fun) / sizeof(int *); ++uiFun){
+						// 	if(uiFun > searchTypeDefine){
+						// 		const char *s[] = { "union", "enum", "class", "namespace" };
+						// 		searchStructString = s[uiFun - 4];
+						// 	}
+						// 	search(dir.spath, dir.sfname[uiDir], findStr[uiFindStr], fun[uiFun]);
+						// }
+						for (size_t uiFun = 0; uiFun < sizeof(fun) / sizeof(int *) + 4; ++uiFun){
+							if(uiFun > searchTypeDefine){
 								const char *s[] = { "union", "enum", "class", "namespace" };
-								searchStructString = s[funIndex - 4];
+								searchStructString = s[uiFun - 4];
 							}
-							search(dir.spath, dir.sfname[uiDir], findStr[uiFindStr], fun[uiFun]);
+							else{
+								searchStructString = "struct";
+							}
+							search(dir.spath, dir.sfname[uiDir], findStr[uiFindStr], fun[uiFun > searchTypeDefine ? uiFun - 4 : uiFun]);
 						}
 					}					
 				}
+				total_file += dir.sfname.size();
 			}
 		}
 	}
@@ -285,14 +301,14 @@ void getdir(const char *root, std::vector<search_infor>&path){
 }
 /*}}}*/
 /*{{{*/
-bool isCommit(const char *pStr, int len){
-	if(!memchr(pStr, '/', len) && !memchr(pStr, '*', len))return false;
-	for(int i = 0; i < len - 1; ++i){
-		if(isalpha(pStr[i]))break;
-		if(pStr[i] == '*' || (pStr[i] == '/' && (pStr[i + 1] == '*' || pStr[i + 1] == '/')))return true;
-	}
-	return false;
-}
+// bool isCommit(const char *pStr, int len){
+// 	if(!memchr(pStr, '/', len) && !memchr(pStr, '*', len))return false;
+// 	for(int i = 0; i < len - 1; ++i){
+// 		if(isalpha(pStr[i]))break;
+// 		if(pStr[i] == '*' || (pStr[i] == '/' && (pStr[i + 1] == '*' || pStr[i + 1] == '/')))return true;
+// 	}
+// 	return false;
+// }
 /*}}}*/
 uint32_t GetFileContent(const std::string&file, char *content){
 	FILE *fp = fopen(file.c_str(), "rb");
@@ -481,7 +497,7 @@ void search_fun(const std::string&content, const std::string&lpstr, std::vector<
 void search_macro(const std::string&content, const std::string&lpstr, std::vector<std::string>&str){
 	const char *lpStart = content.c_str();
 	char buffer[MAXBYTE] = {0};
-	sprintf(buffer, "#define %s", lpstr);
+	sprintf(buffer, "#define %s", lpstr.c_str());
 	while((lpStart = strstr(lpStart, buffer))){
 		int len = strcspn(lpStart, "\n");
 		if('\\' == *(lpStart + len - 1)){
@@ -563,12 +579,12 @@ bool get_val_in_line(int argc, char *argv[], const std::string&lpsstr, std::stri
 	return false;
 }
 void help(){
-	printf("format:[option] string [string] [option][string]...\n");
+	printf("format:option string [string] [option][string]...\n");
 	printf("example:query -f strcpy strcat -s VkDeviceC -f vkCmdDraw -s VkDeviceCreateInfo -sf string.h vulkan_core.h\n");
 	printf("option:\n");
 	// printf("%s表示不在该路及内搜索\n", NO_SEARCH_PATH_OPTION);
 	// printf("%s表示不在该文件内搜索\n", NO_SEARCH_FILE_OPTION);
-	printf("%s表示搜索所有类型\n", ALL_OPTION);
+	printf("\t'%s'表示搜索所有类型\n", ALL_OPTION);
 	printf("\t'%s' indicate search enum\n", ENUM_OPTION);
 	printf("\t'%s' indicate search union\n", UNION_OPTION);
 	printf("\t'%s' indicate search class\n", CLASS_OPTION);
@@ -580,21 +596,22 @@ void help(){
 	printf("\t'%s' indicate search type define\n", TYPEDEF_OPTION);
 	// printf("\t'%s' indicate search in that file;\n", FILE_OPTION);
 }
-bool isInvalid(int argc, char *argv[], const std::vector<std::string>&option){
-	int ioption = 0;
-	int optCount = 0;
-	if(argc < 2)return true;
-	for(int j = 0; j < option.size(); j++){
-		if(INVALID_VAL == get_index_in_line(argc, argv, option[j]))++optCount;
-		for(int i = 1; i < argc; i++){
-			if(option[j] == argv[i]){
-				ioption++;
-				break;
-			}
-		}
-	}
-	//说明不是只有传一个 选项
-	return (ioption == argc - 1) || optCount == option.size();
+bool isInvalid(int argc, char *argv[]){
+	return argc < 3;
+	// int ioption = 0;
+	// int optCount = 0;
+	// if(argc < 3)return true;
+	// for(int j = 0; j < argc; j++){
+	// 	if(INVALID_VAL == get_index_in_line(argc, argv, option[j]))++optCount;
+	// 	for(int i = 1; i < argc; i++){
+	// 		if(option[j] == argv[i]){
+	// 			ioption++;
+	// 			break;
+	// 		}
+	// 	}
+	// }
+	// //说明不是只有传一个 选项
+	// return (ioption == argc - 1) || optCount == option.size();
 }
 int get_index_in_line(int argc, char *argv[], const std::string&str, int32_t start){
 	for(int i = start; i < argc; i++){
@@ -658,10 +675,9 @@ char *strrpc(char *str,char *oldstr,char *newstr){
 }
 */
 bool isOption(int argc, char *argv[], int index){
-	const std::vector<std::string> option = { FUNCTION_OPTION, MACRO_OPTION,  STRUCTURE_OPTION, TYPEDEF_OPTION, UNION_OPTION, ENUM_OPTION, CLASS_OPTION, NAMESPACE_OPTION,  PATH_OPTION };
 	// const std::vector<std::string> option = { FUNCTION_OPTION, MACRO_OPTION,  STRUCTURE_OPTION, TYPEDEF_OPTION, UNION_OPTION, ENUM_OPTION, CLASS_OPTION, NAMESPACE_OPTION,  PATH_OPTION, FILE_OPTION, NO_SEARCH_FILE_OPTION };
-	for(int i = 0; i < option.size(); ++i){
-		if(argv[index] == option[i]){
+	for(int i = 0; i < g_Option.size(); ++i){
+		if(argv[index] && argv[index] == g_Option[i]){
 			return true;
 		}
 	}
