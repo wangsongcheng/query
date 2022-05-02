@@ -508,39 +508,36 @@ void search_macro(const std::string&content, const std::string&lpstr, std::vecto
 /*}}}*/
 void search_struct(const std::string&content, const std::string&lpstr, std::vector<std::string>&str){
 //just search struct name;no search struct alias name
-	int count = content.length();
-	char *Buff = new char[count + 1];
-	memset(Buff, 0, count + 1);
-	strcpy(Buff, content.c_str());
-	char *p = nullptr;
-	char *lpStart = Buff;
+	// int count = content.length();
+	const char *lpEnd = nullptr;
+	const char *lpStart = content.c_str();
+    //结构体前面带typedef.后面才能带别名
 	char buffer[MAXBYTE] = {0};
+    //这里假设该结构体非匿名结构体
 	sprintf(buffer, "%s %s", searchStructString.c_str(), lpstr.c_str());
 	while((lpStart = strstr(lpStart, buffer))){
 		lpStart -= strlen("typedef ");
 		if(memcmp(lpStart, "typedef ", strlen("typedef")))lpStart += strlen("typedef ");
-		p = strchr(lpStart, '\n');
-		if(p && memchr(lpStart, '{', strcspn(lpStart, "\n")) && ';' != *(p - 1)){
-			int count = 1;
-			p = strchr(lpStart, '{');
+		lpEnd = strchr(lpStart, '\n');
+		if(lpEnd && memchr(lpStart, '{', strcspn(lpStart, "\n")) && ';' != *(lpEnd - 1)){
+			uint32_t count = 1;
+			lpEnd = strchr(lpStart, '{');
 			do{
-				p++;
-					if(*p == '{')count++;
-				if(*p == '}')count--;
-				if(!p)break;
+				++lpEnd;
+				if(!lpEnd)break;
+				if(*lpEnd == '{')count++;
+				if(*lpEnd == '}')count--;
 			}while(count);
-			p = strchr(p, '\n');
+			lpEnd = strchr(lpEnd, '\n');
 		}
-		if(p){
-			*p = 0;
-                std::string buff(lpStart);
+		if(lpEnd){
+            std::string buff(lpStart, lpEnd - lpStart);
             if(!g_ExactMatch || isExacgMatch(buff, lpstr)){
                 str.push_back(buff);
             }
 		}
 		lpStart += lpstr.length() + searchStructString.length() + strlen("typedef");
 	}
-	delete[]Buff;
 }
 void search_type_define(const std::string&content, const std::string&lpstr, std::vector<std::string>&str){
 	int count = content.length();
