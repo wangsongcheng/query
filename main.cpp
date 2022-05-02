@@ -34,6 +34,7 @@
 #define CLASS_OPTION "-c"
 #define NAMESPACE_OPTION "-ns"
 #define ALL_OPTION "-a"
+#define EXACT_MATCH_OPTION "-em"
 // #define NO_SEARCH_FILE_OPTION "-nsf"
 // #define NO_SEARCH_PATH_OPTION "-nsd"
 #define PATH_OPTION "-d"
@@ -54,6 +55,7 @@ struct search_infor{
 	std::string spath;//search path
 	std::vector<std::string> sfname;//search file name
 };
+bool g_ExactMatch;
 //bool g_bFun;
 int getfilelen(FILE *fp);
 void getdir(const char *root, std::vector<search_infor>&path);
@@ -63,12 +65,14 @@ void get_option_val(int argc, char *argv[], const std::string&opt, std::vector<s
 int linage(const std::string&content);
 void help();
 // bool isCommit(const char *pStr, int len);
+bool isExacgMatch(const std::string&str, const std::string&searchName);
 bool isOption(int argc, char *argv[], int index);
 // bool isFun(const char *lpstr, int str_size, const char *fun_name);
 bool isInvalid(int argc, char *argv[]);
 const char *movepointer(const char *p, char ch, bool bfront);
 void remove_comment(char *content);
 void removeSame(const std::vector<std::string>&in, std::vector<std::string>&out);
+void removeArgv(int32_t&argc, char *argv[], uint32_t index);
 // void removeSame(const std::vector<std::string>&in, std::vector<search_infor>&out);
 void search(const std::string&cPath, const std::string&filename, const std::string&lpstr, void(*fun)(const std::string&content, const std::string&lpstr, std::vector<std::string>&str));
 void search_fun(const std::string&content, const std::string&lpstr, std::vector<std::string>&str);
@@ -95,7 +99,7 @@ void removeSamePath(const std::vector<std::string>&in, std::vector<search_infor>
 		}
 	}
 }
-int main(int argc, char *argv[], char *envp[]){//envp环境变量表
+int main(int32_t argc, char *argv[], char *envp[]){//envp环境变量表
 	double getdir_totaltime = 0.0f, search_totaltime = 0.0f;
 	clock_t getdir_start, getdir_finish, search_file_start, search_file_finish;//time count
 	
@@ -120,6 +124,11 @@ int main(int argc, char *argv[], char *envp[]){//envp环境变量表
 	// get_option_val(argc, argv, FILE_OPTION, searchFile);
 	// get_option_val(argc, argv, NO_SEARCH_PATH_OPTION, noSearchPath);
 	// get_option_val(argc, argv, NO_SEARCH_FILE_OPTION, noSearchFile);
+    int32_t em_Option = get_index_in_line(argc, argv, EXACT_MATCH_OPTION);
+    if(INVALID_VAL != em_Option){
+        g_ExactMatch = true;
+        removeArgv(argc, argv, em_Option);
+    }
 	//上面获取的有可能是正则表达式,
 	get_option_val(argc, argv, PATH_OPTION, rootPath);
 
@@ -234,6 +243,12 @@ void removeSame(const std::vector<std::string>&in, std::vector<std::string>&out)
 			}
 		}		
 	}
+}
+void removeArgv(int32_t&argc, char *argv[], uint32_t index){
+    for (size_t i = index + 1; i < argc; ++i){
+        argv[index] = argv[i];
+    }
+    --argc;
 }
 /*{{{*/
 void getdir(const char *root, std::vector<search_infor>&path){
@@ -380,12 +395,21 @@ bool isFun(const std::string&str, const char *fun_name){
 	size_t funNamePos = str.find(fun_name);
 	size_t c = str.find('(', funNamePos + funNameSize);
 	size_t _c = str.find(')', funNamePos + funNameSize);
+	const std::string invalidStr[] = {
+		"if(", "if (", "return", "|", "!", "&&", "#", "->", "typedef",
+		":", "{", "}", "$", "@", "%", "^", "/", "\\", "%", "//", "\"",
+        "/*", "*/", "+", "-", "[", "]"
+	};
+	for(int32_t i = 0; i < sizeof(invalidStr) / sizeof(std::string); ++i)
+		if(std::string::npos != str.find(invalidStr[i]))
+			return false;
 	//排除连基本的函数声明特征都没有的字符串(没有指定的函数名没有一对括号)
-	if(std::string::npos != funNamePos && std::string::npos != c && std::string::npos != _c && std::string::npos == str.find("if (") && std::string::npos == str.find("return ")){
+	if(std::string::npos != funNamePos && std::string::npos != c && str.find('(') > funNamePos && std::string::npos != _c){
+		if(str[c + 1] != ')' && std::string::npos == str.find(" "))return false;
 		//排除不可能出现在函数声明的字符
 		size_t comma = str.find(',');
 		size_t point = str.find('.');
-		if((comma == std::string::npos || c < comma) && (std::string::npos == point || str[point + 1] == '.') && std::string::npos == str.find("#") && std::string::npos == str.find("->") && std::string::npos == str.find("typedef") && std::string::npos == str.find(':') && std::string::npos == str.find('!') && std::string::npos == str.find('}') && std::string::npos == str.find('{')){
+		if((comma == std::string::npos || c < comma) && (std::string::npos == point || str[point + 1] == '.')){
 			//等号有可能是默认参数。必须额外判断
 			size_t p = str.find('=');
 			if(std::string::npos == p || (p > c && p < _c)){//找到的括号一定在查找的字符串后面
@@ -398,30 +422,7 @@ bool isFun(const std::string&str, const char *fun_name){
 			}
 		}
 	}
-	// char *buffer = new char[str_size + 1];
-	// memcpy(buffer, lpstr, str_size);
-	// buffer[str_size] = 0;
-	// if(strchr(buffer, '(')){
-	// 	char *p = strstr(buffer, fun_name);//不知道为什么，复制到buffer的内容居然不包含函数名。将直接跳过这样的内容
-	// 	if(p){
-	// 		for(p += strlen(fun_name); *p && *p != '('; ++p){
-	// 			if(*p != ' ' && !isalpha(*p)){
-	// 				bIsFun = false;
-	// 				break;
-	// 			}
-	// 		}
-	// 		if(*p == '(' && *(p + 1) != ')')bIsFun = true;
-	// 	}
-	// }
-	// delete[]buffer;
 	return bIsFun;
-	//搜索效率
-// 	char lpReg[100] = {0};
-// 	sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*)?[;]?[\r]?", fun_name);
-// 	std::regex reg(lpReg);
-// 	std::smatch result;
-// 	std::string str(lpstr, str_size);
-// 	return regex_match(str, result, reg);
 }
 //--前 ++后
 /*{{{*/
@@ -436,62 +437,54 @@ const char *movepointer(const char *p, char ch, bool bfront){
 	return p;
 }
 /*}}}*/
+// #define USE_REGEXP 
 void search_fun(const std::string&content, const std::string&lpstr, std::vector<std::string>&str){
-	// std::smatch result;
-	// char lpReg[100] = {0};
-	const char *lpStart = content.c_str();
+	const char *lpStart = content.c_str(), *lpEnd = strstr(content.c_str(), lpstr.c_str()), *lpTemp = lpStart;
+    if(!lpEnd)return;
+#define FUNCTION_MAX_CHA 500
+#ifdef USE_REGEXP
+	 std::smatch result;
+	 char lpReg[100] = {0};
 	// sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*)?[\n]?.*[;]?[\r]?", lpstr.c_str());
-	// sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*[\n]?.*[\n]?.*[\n]?.*[\n]?.*[\n]?.*)[\n]?.*;", lpstr.c_str());//可能存在正则表达式匹配死循环的情况
-	// std::regex reg(lpReg);
-	while((lpStart = strstr(lpStart, lpstr.c_str()))){
-// 		//---判断找到的字符串是否是函数
-// //		printf("%.*s\n", 50, lpStart);
-		lpStart = movepointer(lpStart, '\n', true);lpStart++;
-		int lineSize = strcspn(lpStart, "\n");
-		int len = strcspn(lpStart, ";");
-		if(isFun(std::string(lpStart, len + 1), lpstr.c_str())){
-			str.push_back(std::string(lpStart, len + 1));
-		}
-		// // sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*)?[;]?[\r]?", lpstr.c_str());//匹配不到函数声明，而是一堆调用
-		// // sprintf(lpReg, ".*%s.*", lpstr.c_str());//匹配不到函数声明，而是一堆调用
-		// // sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*)?[\r]?[;]?[\r]?", lpstr.c_str());//匹配不到函数声明，而是一堆调用
-		// std::string regexStr(lpStart, len + 1);
-		// // std::cout << regexStr << std::endl;
-		// //试图手动过滤一些不匹配的字符串
-		// std::size_t pos = regexStr.find('=', 0);//过滤左括号前有=号的字符串
-		// // if(pos != std::string::npos){
-		// // 	printf("h\n");
-		// // }
-		// if((std::string::npos ==  pos|| pos > regexStr.find('(', 0)) && std::string::npos == regexStr.find("return", 0)){
-		// 	if(regex_match(regexStr, result, reg)){
-		// 		std::string _str(lpStart, len + 1);
-		// 		str.push_back(_str);
-		// 	}
-		// }
-// 		if(*lpStart != '#'){
-// 			if(memchr(lpStart, '\\', lineSize) || !memchr(lpStart, '(', lineSize)){
-// 				lpStart += lineSize + 1;
-// 				continue;
-// 			}
-// 			int len = strcspn(lpStart, ";");
-// 			if(lpstr.find('(') != std::string::npos || isFun(lpStart, len + 1, lpstr.c_str())){
-// 				std::string _str(lpStart, len + 1);
-// 				str.push_back(_str);
-// 			}
-		// }
-		/*
-			加入查找的是strcpy，在以下字符串查找。因为分号比strcpy的位置还前，导致lpStart无法找到下一个strcpy，故而进入死循环。
-			这也说明在strpy这一行前面有分号。可以说明查找的不是函数
-			//一般而言，函数声明的分号一般都会在回车符结尾
-			------
-			\n  if ( _arg ) { this->var = new char[ strlen(_arg) + 1 ]; strcpy(this->var, _arg); }
-		*/
-		if(len < lineSize - 1){
-			lpStart += lineSize;
-			continue;
-		}
-		lpStart += len + 1;
-	}
+	sprintf(lpReg, "[^#/*].*[*&]? [*&]?%s.*[ ]?(.*[\n]?.*[\n]?.*[\n]?.*[\n]?.*[\n]?.*)[\n]?.*;", lpstr.c_str());//可能存在正则表达式匹配死循环的情况
+	std::regex reg(lpReg);
+    do{
+        while(lpTemp < lpEnd){
+            lpStart = ++lpTemp;
+            lpTemp = strchr(lpStart, '\n');
+        }
+        uint32_t len = strcspn(lpStart, ";");
+        if(len <= FUNCTION_MAX_CHA){//函数声明一般都不会太多字符。目前先假设最多只有这样
+            std::string regexStr(lpStart, len + 1);
+            if(regex_match(regexStr, result, reg)){
+               if(isFun(regexStr, lpstr.c_str())){
+                    std::string _str(lpStart, len + 1);
+                    str.push_back(_str);
+                }
+            }
+        }
+        lpStart += len + 1;
+    } while (lpEnd = strstr(lpStart, lpstr.c_str()));
+#else
+    do{
+        while(lpTemp && lpTemp < lpEnd){
+            lpStart = ++lpTemp;
+            lpTemp = strchr(lpStart, '\n');
+        }
+        uint32_t len = strcspn(lpStart, ";");
+        if(len <= FUNCTION_MAX_CHA){//函数声明一般都不会太多字符。目前先假设最多只有这样
+            std::string fun(lpStart, len + 1);
+            if(isFun(fun, lpstr.c_str())){
+                if(!g_ExactMatch || isExacgMatch(fun, lpstr)){
+                    std::string _str(lpStart, len + 1);
+                    str.push_back(_str);
+                }
+            }
+        }
+        lpStart += len + 1;
+    } while (lpEnd = strstr(lpStart, lpstr.c_str()));
+#endif
+#undef FUNCTION_MAX_CHA
 }
 /*{{{*/
 void search_macro(const std::string&content, const std::string&lpstr, std::vector<std::string>&str){
@@ -506,7 +499,9 @@ void search_macro(const std::string&content, const std::string&lpstr, std::vecto
 			}while('\\' == *(lpStart + len - 1));
 		}
 		std::string buff(lpStart, len);
-		str.push_back(buff);
+        if(!g_ExactMatch || isExacgMatch(buff, lpstr)){
+		    str.push_back(buff);
+        }
 		lpStart += lpstr.length() + strlen("#define ");
 	}
 }
@@ -538,8 +533,10 @@ void search_struct(const std::string&content, const std::string&lpstr, std::vect
 		}
 		if(p){
 			*p = 0;
-			std::string buff(lpStart);
-			str.push_back(buff);
+                std::string buff(lpStart);
+            if(!g_ExactMatch || isExacgMatch(buff, lpstr)){
+                str.push_back(buff);
+            }
 		}
 		lpStart += lpstr.length() + searchStructString.length() + strlen("typedef");
 	}
@@ -558,7 +555,9 @@ void search_type_define(const std::string&content, const std::string&lpstr, std:
 		if(p){
 			*p = 0;
 			std::string buff(lpStart);
-			str.push_back(buff);
+            if(!g_ExactMatch || isExacgMatch(buff, lpstr)){
+			    str.push_back(buff);
+            }
 		}
 		lpStart += lpstr.length() + strlen("typedef ");
 	}
@@ -584,6 +583,7 @@ void help(){
 	printf("option:\n");
 	// printf("%s表示不在该路及内搜索\n", NO_SEARCH_PATH_OPTION);
 	// printf("%s表示不在该文件内搜索\n", NO_SEARCH_FILE_OPTION);
+    printf("\t'%s'表示必须完全匹配名称\n", EXACT_MATCH_OPTION);
 	printf("\t'%s'表示搜索所有类型\n", ALL_OPTION);
 	printf("\t'%s' indicate search enum\n", ENUM_OPTION);
 	printf("\t'%s' indicate search union\n", UNION_OPTION);
@@ -674,8 +674,14 @@ char *strrpc(char *str,char *oldstr,char *newstr){
 	return str;
 }
 */
+bool isExacgMatch(const std::string&str, const std::string&searchName){
+    size_t pos = str.find(searchName);
+    if(pos != std::string::npos && pos > 1){
+        if((str[pos - 1] == ' ' || str[pos - 1] == '*' || str[pos - 1] == '&') && (str[pos + searchName.length()] == ' ' || str[pos + searchName.length()] == '(' || str[pos + searchName.length()] == '{'))return true;
+    }
+    return false;
+}
 bool isOption(int argc, char *argv[], int index){
-	// const std::vector<std::string> option = { FUNCTION_OPTION, MACRO_OPTION,  STRUCTURE_OPTION, TYPEDEF_OPTION, UNION_OPTION, ENUM_OPTION, CLASS_OPTION, NAMESPACE_OPTION,  PATH_OPTION, FILE_OPTION, NO_SEARCH_FILE_OPTION };
 	for(int i = 0; i < g_Option.size(); ++i){
 		if(argv[index] && argv[index] == g_Option[i]){
 			return true;
