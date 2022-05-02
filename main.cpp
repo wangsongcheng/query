@@ -492,13 +492,12 @@ void search_macro(const std::string&content, const std::string&lpstr, std::vecto
 	char buffer[MAXBYTE] = {0};
 	sprintf(buffer, "#define %s", lpstr.c_str());
 	while((lpStart = strstr(lpStart, buffer))){
-		int len = strcspn(lpStart, "\n");
-		if('\\' == *(lpStart + len - 1)){
-			do{
-				len += strcspn(lpStart, "\n");
-			}while('\\' == *(lpStart + len - 1));
+        const char *lpEnd = lpStart;
+        // const char *lpTemp = lpEnd;
+		while((lpEnd = strchr(lpEnd, '\n')) && (*(lpEnd - 1) == '\\' || *(lpEnd - 2) == '\\')){
+            ++lpEnd;
 		}
-		std::string buff(lpStart, len);
+		std::string buff(lpStart, lpEnd - lpStart);
         if(!g_ExactMatch || isExacgMatch(buff, lpstr)){
 		    str.push_back(buff);
         }
@@ -540,25 +539,19 @@ void search_struct(const std::string&content, const std::string&lpstr, std::vect
 	}
 }
 void search_type_define(const std::string&content, const std::string&lpstr, std::vector<std::string>&str){
-	int count = content.length();
-	char *Buff = new char[count + 1];
-	memset(Buff, 0, count + 1);
-	strcpy(Buff, content.c_str());
-	char *lpStart = Buff;
+	const char *lpStart = content.c_str();
 	char buffer[MAXBYTE] = {0};
 	sprintf(buffer, "typedef %s", lpstr.c_str());
 	while((lpStart = strstr(lpStart, buffer))){
-		char *p = strchr(lpStart, '\n');
-		if(p){
-			*p = 0;
-			std::string buff(lpStart);
+		const char *lpEnd = strchr(lpStart, '\n');
+		if(lpEnd){
+			std::string buff(lpStart, lpEnd - lpStart);
             if(!g_ExactMatch || isExacgMatch(buff, lpstr)){
 			    str.push_back(buff);
             }
 		}
 		lpStart += lpstr.length() + strlen("typedef ");
 	}
-	delete[]Buff;
 }
 #ifdef WIN32
 void SetTextColor(WORD color){
