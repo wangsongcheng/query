@@ -135,7 +135,7 @@ int main(int32_t argc, char *argv[], char *envp[]){//envp环境变量表
 	if(rootPath.empty()){//用户未指定目录就从默认的目录查找
 #ifdef __linux
 		rootPath.push_back(DEFAULT_INCLUDE_PATH_USR_INCLUDE);
-		rootPath.push_back(DEFAULT_INCLUDE_PATH_USR_LIB);
+//		rootPath.push_back(DEFAULT_INCLUDE_PATH_USR_LIB);
 		rootPath.push_back(DEFAULT_INCLUDE_PATH_USR_LOCAL_INCLUDE);
 #endif
 #ifdef WIN32
@@ -157,6 +157,16 @@ int main(int32_t argc, char *argv[], char *envp[]){//envp环境变量表
 		search_type_define,
 	};
 	uint32_t total_file = 0;
+	std::vector<search_infor>searchPath;//需要搜索指定的所有根目录的数量//一个就能代表一个文件夹以及里面所有文件
+	//支持多个目录、的多个文件//-a表示找所有类型。多执行几次不同类型的search函数即可
+	// if(searchFile.empty()){
+	//没有指定文件名称，需要查找目录下的所有文件名
+	getdir_start = clock();
+	for (size_t uiRootPath = 0; uiRootPath < rootPath.size(); ++uiRootPath){
+		getdir(rootPath[uiRootPath].c_str(), searchPath);
+	}
+	getdir_finish = clock();
+	getdir_totaltime = (double)(getdir_finish - getdir_start) / CLOCKS_PER_SEC;
 	//支持查询多个相同选项：-f strcpy printf -m MAXBYTE -m A
 	for (size_t i = 0; i < g_Option.size() - 1; ++i){
 		//判断需要查询的类型
@@ -164,16 +174,6 @@ int main(int32_t argc, char *argv[], char *envp[]){//envp环境变量表
 		get_option_val(argc, argv, g_Option[i], findStr);
 		if(findStr.empty())continue;
 		//后面真正用来搜索的路径
-		std::vector<search_infor>searchPath;//需要搜索指定的所有根目录的数量//一个就能代表一个文件夹以及里面所有文件
-		//支持多个目录、的多个文件//-a表示找所有类型。多执行几次不同类型的search函数即可
-		// if(searchFile.empty()){
-		//没有指定文件名称，需要查找目录下的所有文件名
-		getdir_start = clock();
-		for (size_t uiRootPath = 0; uiRootPath < rootPath.size(); ++uiRootPath){
-			getdir(rootPath[uiRootPath].c_str(), searchPath);
-		}
-		getdir_finish = clock();
-		getdir_totaltime = (double)(getdir_finish - getdir_start) / CLOCKS_PER_SEC;
 		// }
 		// else{
 		// 	//如果指定了文件名。就搜集起来
@@ -248,6 +248,7 @@ void removeArgv(int32_t&argc, char *argv[], uint32_t index){
     for (size_t i = index + 1; i < argc; ++i){
         argv[index] = argv[i];
     }
+    // argv[argc - 1] = nullptr;
     --argc;
 }
 /*{{{*/
@@ -493,7 +494,6 @@ void search_macro(const std::string&content, const std::string&lpstr, std::vecto
 	sprintf(buffer, "#define %s", lpstr.c_str());
 	while((lpStart = strstr(lpStart, buffer))){
         const char *lpEnd = lpStart;
-        // const char *lpTemp = lpEnd;
 		while((lpEnd = strchr(lpEnd, '\n')) && (*(lpEnd - 1) == '\\' || *(lpEnd - 2) == '\\')){
             ++lpEnd;
 		}
@@ -684,7 +684,7 @@ void get_option_val(int argc, char *argv[], const std::string&opt, std::vector<s
 	int index = INVALID_VAL;
 	while(INVALID_VAL != (index = get_index_in_line(argc, argv, opt, offset))){
 		++index;
-		while(argv[index] && !isOption(argc, argv, index)){
+		while(index < argc && argv[index] && !isOption(argc, argv, index)){
 			out.push_back(argv[index]);
 			++index;
 		}
