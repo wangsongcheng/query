@@ -37,7 +37,7 @@
 #define EXACT_MATCH_OPTION "-em"
 // #define NO_SEARCH_FILE_OPTION "-nsf"
 // #define NO_SEARCH_PATH_OPTION "-nsd"
-#define PATH_OPTION "-d"
+// #define PATH_OPTION "-d"
 // #define FILE_OPTION "-sf"
 enum Search_Type{
 	INVALID_VAL = -1,
@@ -83,7 +83,7 @@ void search_type_define(const std::string&content, const std::string&lpstr, std:
 void SetTextColor(WORD color);
 #endif
 std::string searchStructString = "struct";
-const std::vector<std::string> g_Option = { FUNCTION_OPTION, MACRO_OPTION,  STRUCTURE_OPTION, TYPEDEF_OPTION, UNION_OPTION, ENUM_OPTION, CLASS_OPTION, NAMESPACE_OPTION, ALL_OPTION,  PATH_OPTION };
+const std::vector<std::string> g_Option = { FUNCTION_OPTION, MACRO_OPTION,  STRUCTURE_OPTION, TYPEDEF_OPTION, UNION_OPTION, ENUM_OPTION, CLASS_OPTION, NAMESPACE_OPTION, ALL_OPTION };
 //char *strrpc(char *str,char *oldstr,char *newstr);
 void removeSameFile(const std::vector<std::string>&in, std::vector<search_infor>&out){
 	for (size_t i = 0; i < out.size(); ++i){
@@ -98,6 +98,13 @@ void removeSamePath(const std::vector<std::string>&in, std::vector<search_infor>
 			}	
 		}
 	}
+}
+void getRootPath(int32_t argc, char *argv[], std::vector<std::string>&out){
+    for (size_t i = 1; i < argc; ++i){
+        if(strchr(argv[i], '/') || strchr(argv[i], '\\')){
+            out.push_back(argv[i]);
+        }
+    }
 }
 int main(int32_t argc, char *argv[], char *envp[]){//envp环境变量表
 	double getdir_totaltime = 0.0f, search_totaltime = 0.0f;
@@ -130,7 +137,8 @@ int main(int32_t argc, char *argv[], char *envp[]){//envp环境变量表
         removeArgv(argc, argv, em_Option);
     }
 	//上面获取的有可能是正则表达式,
-	get_option_val(argc, argv, PATH_OPTION, rootPath);
+	// get_option_val(argc, argv, PATH_OPTION, rootPath);
+    getRootPath(argc, argv, rootPath);
 
 	if(rootPath.empty()){//用户未指定目录就从默认的目录查找
 #ifdef __linux
@@ -352,7 +360,7 @@ void search(const std::string&cPath, const std::string&filename, const std::stri
 	content = new char[size + 1];
 	GetFileContent(szPath, content);
 	content[size] = 0;
-	remove_comment(content);
+	// remove_comment(content);
 	std::vector<std::string>str;
 	fun(content, lpstr, str);
 	int line;
@@ -410,7 +418,7 @@ bool isFun(const std::string&str, const char *fun_name){
 		//排除不可能出现在函数声明的字符
 		size_t comma = str.find(',');
 		size_t point = str.find('.');
-		if((comma == std::string::npos || c < comma) && (std::string::npos == point || str[point + 1] == '.')){
+		// if((comma == std::string::npos || c < comma) && (std::string::npos == point || str[point + 1] == '.')){
 			//等号有可能是默认参数。必须额外判断
 			size_t p = str.find('=');
 			if(std::string::npos == p || (p > c && p < _c)){//找到的括号一定在查找的字符串后面
@@ -421,7 +429,7 @@ bool isFun(const std::string&str, const char *fun_name){
 					}
 				}
 			}
-		}
+		// }
 	}
 	return bIsFun;
 }
@@ -581,7 +589,7 @@ void help(){
 	printf("\t'%s' indicate search macro\n", MACRO_OPTION);
 	printf("\t'%s' indicate search function\n", FUNCTION_OPTION);
 	printf("\t'%s' indicate search structure\n", STRUCTURE_OPTION);
-	printf("\t'%s' indicate search directory\n", PATH_OPTION);
+	// printf("\t'%s' indicate search directory\n", PATH_OPTION);
 	printf("\t'%s' indicate search namespace\n", NAMESPACE_OPTION);
 	printf("\t'%s' indicate search type define\n", TYPEDEF_OPTION);
 	// printf("\t'%s' indicate search in that file;\n", FILE_OPTION);
