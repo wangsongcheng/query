@@ -109,8 +109,10 @@ void getRootPath(int32_t argc, char *argv[], std::vector<std::string>&out){
 bool isDefaultOption(int32_t argc, char *argv[]){
     bool bDefaultOption = false;
     if(argc > 1){
-        bDefaultOption = argv[1][0] != '-';
-        bDefaultOption = !strcmp(argv[1], EXACT_MATCH_OPTION);
+        if(argc == 2){
+            return true;
+        }
+        bDefaultOption = argv[1 + !strcmp(argv[1], EXACT_MATCH_OPTION)][0] != '-';
     }
     return bDefaultOption;
 }
@@ -143,7 +145,10 @@ int main(int32_t argc, char *argv[], char *envp[]){//envp环境变量表
     int32_t em_Option = get_index_in_line(argc, argv, EXACT_MATCH_OPTION);
     if(INVALID_VAL != em_Option){
         g_ExactMatch = true;
-        removeArgv(argc, argv, em_Option);
+        //目前是期望-s -em。但有可能是-em -s
+        if(argv[em_Option - 1][0] == '-'){
+            removeArgv(argc, argv, em_Option);
+        }
     }
 	//上面获取的有可能是正则表达式,
 	// get_option_val(argc, argv, PATH_OPTION, rootPath);
@@ -239,11 +244,15 @@ int main(int32_t argc, char *argv[], char *envp[]){//envp环境变量表
 				total_file += dir.sfname.size();
 			}
 		}
+	    printf("------------------选项:%s;搜索内容:", g_Option[i].c_str());
+        for (size_t j = 0; j < findStr.size(); ++j){
+            printf("%s;", findStr[j].c_str());
+        }
+        printf("------------------\n");
 	}
 	search_file_finish = clock();
 	search_totaltime = (double)(search_file_finish - search_file_start) / CLOCKS_PER_SEC;
-	std::cout << "-----------------------------" << std::endl;
-	std::cout << "search path:";
+	std::cout << "path:";
 	for (size_t i = 0; i < rootPath.size(); ++i){
 		std::cout << rootPath[i] << "\t";
 	}
@@ -606,8 +615,8 @@ void help(){
 	printf("\t'%s' 搜索typedef\n", TYPEDEF_OPTION);
 	// printf("\t'%s' indicate search in that file;\n", FILE_OPTION);
     printf("注意:\n");
-    printf("\t如果路径只有一层, 则必须包含/或./。\n");
-    printf("\t./query strcpy ./include\t可以正常获取路径\n\t\t\tinclude/\t可以正常获取路径\n\t\t\t./include\t可以正常获取路径\n\t\t\tinclude\t\t该路径将被作为一般的字符串\n");
+    printf("\t如果路径只有一层, 则必须包含'/'或'./'。\n");
+    printf("\t./query strcpy ./include\t可以获取路径\n\t\t\tinclude/\t可以获取路径\n\t\t\t./include\t可以获取路径\n\t\t\tinclude\t\t无法获取路径\n");
 }
 bool isInvalid(int argc, char *argv[]){
 	return argc < 2;
