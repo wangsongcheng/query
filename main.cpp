@@ -61,7 +61,7 @@ int getfilelen(FILE *fp);
 void getdir(const char *root, std::vector<search_infor>&path);
 bool get_val_in_line(int argc, char *argv[], const std::string&lpsstr, std::string&lpstr, int32_t start = 1);
 int get_index_in_line(int argc, char *argv[], const std::string&str, int32_t start = 1);
-void get_option_val(int argc, char *argv[], const std::string&opt, std::vector<std::string>&out);
+void get_option_val(int argc, char *argv[], const std::string&opt, std::vector<std::string>&out, int32_t start = 1);
 int linage(const std::string&content);
 void help();
 // bool isCommit(const char *pStr, int len);
@@ -106,17 +106,25 @@ void getRootPath(int32_t argc, char *argv[], std::vector<std::string>&out){
         }
     }
 }
+bool isDefaultOption(int32_t argc, char *argv[]){
+    bool bDefaultOption = false;
+    if(argc > 1){
+        bDefaultOption = argv[1][0] != '-';
+    }
+    return bDefaultOption;
+}
 int main(int32_t argc, char *argv[], char *envp[]){//envp环境变量表
 	double getdir_totaltime = 0.0f, search_totaltime = 0.0f;
 	clock_t getdir_start, getdir_finish, search_file_start, search_file_finish;//time count
-	
 	// const std::vector<std::string> option = { FUNCTION_OPTION, MACRO_OPTION,  STRUCTURE_OPTION, TYPEDEF_OPTION, UNION_OPTION, ENUM_OPTION, CLASS_OPTION, NAMESPACE_OPTION };//, "-d", "-n"
 	if(isInvalid(argc, argv)){
 		printf("parameter insufficient:\n");
 		help();
 		return -1;
 	}
-	
+	if(isDefaultOption(argc, argv)){
+        strcpy(argv[0], FUNCTION_OPTION);
+    }
 	std::vector<std::string> rootPath;
 	// std::vector<std::string> searchFile;
 	// std::vector<std::string> noSearchPath;
@@ -178,8 +186,8 @@ int main(int32_t argc, char *argv[], char *envp[]){//envp环境变量表
 	//支持查询多个相同选项：-f strcpy printf -m MAXBYTE -m A
 	for (size_t i = 0; i < g_Option.size() - 1; ++i){
 		//判断需要查询的类型
-		std::vector<std::string> findStr;
-		get_option_val(argc, argv, g_Option[i], findStr);
+		std::vector<std::string> findStr;//./query strcpy -s ...
+		get_option_val(argc, argv, g_Option[i], findStr, 0);
 		if(findStr.empty())continue;
 		//后面真正用来搜索的路径
 		// }
@@ -576,26 +584,33 @@ bool get_val_in_line(int argc, char *argv[], const std::string&lpsstr, std::stri
 	return false;
 }
 void help(){
-	printf("format:option string [string] [option][string]...\n");
-	printf("example:query -f strcpy strcat -s VkDeviceC -f vkCmdDraw -s VkDeviceCreateInfo -sf string.h vulkan_core.h\n");
-	printf("option:\n");
+	printf("格式:[option] string [string] [option] [string] [string]...\n");
+	printf("例子:\n\t./query strcpy strcat -s VkDeviceC -f vkCmdDraw -s VkDeviceCreateInfo ./include\n");
+	// printf("example:\n\t./query strcpy strcat -s VkDeviceC -f vkCmdDraw -s VkDeviceCreateInfo -sf string.h vulkan_core.h\n\t./query -f strcpy strcat -s VkDeviceC -f vkCmdDraw -s VkDeviceCreateInfo -sf string.h vulkan_core.h\n");
+    printf("说明:\n");
+    printf("\t如果未指定\"选项\", 则默认为'%s'\n", FUNCTION_OPTION);
+	printf("选项:\n");
 	// printf("%s表示不在该路及内搜索\n", NO_SEARCH_PATH_OPTION);
 	// printf("%s表示不在该文件内搜索\n", NO_SEARCH_FILE_OPTION);
-    printf("\t'%s'表示必须完全匹配名称\n", EXACT_MATCH_OPTION);
-	printf("\t'%s'表示搜索所有类型\n", ALL_OPTION);
-	printf("\t'%s' indicate search enum\n", ENUM_OPTION);
-	printf("\t'%s' indicate search union\n", UNION_OPTION);
-	printf("\t'%s' indicate search class\n", CLASS_OPTION);
-	printf("\t'%s' indicate search macro\n", MACRO_OPTION);
-	printf("\t'%s' indicate search function\n", FUNCTION_OPTION);
-	printf("\t'%s' indicate search structure\n", STRUCTURE_OPTION);
+    printf("\t'%s' 完全匹配\n", EXACT_MATCH_OPTION);
+	printf("\t'%s' 搜索所有类型\n", ALL_OPTION);
+	printf("\t'%s' 搜索枚举\n", ENUM_OPTION);
+	printf("\t'%s' 搜索联合体\n", UNION_OPTION);
+	printf("\t'%s' 搜索类\n", CLASS_OPTION);
+	printf("\t'%s' 搜索宏\n", MACRO_OPTION);
+	printf("\t'%s' 搜索函数\n", FUNCTION_OPTION);
+	printf("\t'%s' 搜索结构体\n", STRUCTURE_OPTION);
 	// printf("\t'%s' indicate search directory\n", PATH_OPTION);
 	printf("\t'%s' indicate search namespace\n", NAMESPACE_OPTION);
 	printf("\t'%s' indicate search type define\n", TYPEDEF_OPTION);
 	// printf("\t'%s' indicate search in that file;\n", FILE_OPTION);
+    printf("注意:\n");
+    printf("\t如果路径只有一层, 则前面必须加/或./。\n");
+    printf("\t./query strcpy ./include\t正确, 可以正常获取路径\n");
+    printf("\t./query strcpy include\t\t错误, 该路径将被作为一般的字符串搜索\n");
 }
 bool isInvalid(int argc, char *argv[]){
-	return argc < 3;
+	return argc < 2;
 	// int ioption = 0;
 	// int optCount = 0;
 	// if(argc < 3)return true;
@@ -687,8 +702,8 @@ bool isOption(int argc, char *argv[], int index){
 	}
 	return false;
 }
-void get_option_val(int argc, char *argv[], const std::string&opt, std::vector<std::string>&out){
-	int offset = 1;
+void get_option_val(int argc, char *argv[], const std::string&opt, std::vector<std::string>&out, int32_t start){
+	int offset = start;
 	int index = INVALID_VAL;
 	while(INVALID_VAL != (index = get_index_in_line(argc, argv, opt, offset))){
 		++index;
