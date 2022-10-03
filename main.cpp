@@ -110,6 +110,7 @@ bool isDefaultOption(int32_t argc, char *argv[]){
     bool bDefaultOption = false;
     if(argc > 1){
         bDefaultOption = argv[1][0] != '-';
+        bDefaultOption = !strcmp(argv[1], EXACT_MATCH_OPTION);
     }
     return bDefaultOption;
 }
@@ -601,13 +602,12 @@ void help(){
 	printf("\t'%s' 搜索函数\n", FUNCTION_OPTION);
 	printf("\t'%s' 搜索结构体\n", STRUCTURE_OPTION);
 	// printf("\t'%s' indicate search directory\n", PATH_OPTION);
-	printf("\t'%s' indicate search namespace\n", NAMESPACE_OPTION);
-	printf("\t'%s' indicate search type define\n", TYPEDEF_OPTION);
+	printf("\t'%s' 搜索命名空间\n", NAMESPACE_OPTION);
+	printf("\t'%s' 搜索typedef\n", TYPEDEF_OPTION);
 	// printf("\t'%s' indicate search in that file;\n", FILE_OPTION);
     printf("注意:\n");
-    printf("\t如果路径只有一层, 则前面必须加/或./。\n");
-    printf("\t./query strcpy ./include\t正确, 可以正常获取路径\n");
-    printf("\t./query strcpy include\t\t错误, 该路径将被作为一般的字符串搜索\n");
+    printf("\t如果路径只有一层, 则必须包含/或./。\n");
+    printf("\t./query strcpy ./include\t可以正常获取路径\n\t\t\tinclude/\t可以正常获取路径\n\t\t\t./include\t可以正常获取路径\n\t\t\tinclude\t\t该路径将被作为一般的字符串\n");
 }
 bool isInvalid(int argc, char *argv[]){
 	return argc < 2;
