@@ -85,23 +85,24 @@ void SetTextColor(WORD color);
 std::string searchStructString = "struct";
 const std::vector<std::string> g_Option = { FUNCTION_OPTION, MACRO_OPTION,  STRUCTURE_OPTION, TYPEDEF_OPTION, UNION_OPTION, ENUM_OPTION, CLASS_OPTION, NAMESPACE_OPTION, ALL_OPTION };
 //char *strrpc(char *str,char *oldstr,char *newstr);
-void removeSameFile(const std::vector<std::string>&in, std::vector<search_infor>&out){
-	for (size_t i = 0; i < out.size(); ++i){
-		removeSame(in, out[i].sfname);
-	}
+bool isPath(const char *str){
+    return strchr(str, '/') || strchr(str, '\\');
 }
-void removeSamePath(const std::vector<std::string>&in, std::vector<search_infor>&out){
-	for (size_t i = 0; i < in.size(); ++i){
-		for (size_t j = 0; j < out.size(); ++j){
-			if(in[i] == out[j].spath){
-				out.erase(out.begin() + j);
-			}	
-		}
+// void removeSameFile(const std::vector<std::string>&in, std::vector<search_infor>&out){
+// 	for (size_t i = 0; i < out.size(); ++i){
+// 		removeSame(in, out[i].sfname);
+// 	}
+// }
+void removePath(std::vector<std::string>&inAndOut){
+	for (size_t i = 0; i < inAndOut.size(); ++i){
+        if(isPath(inAndOut[i].c_str())){
+            inAndOut.erase(inAndOut.begin() + i);
+        }	
 	}
 }
 void getRootPath(int32_t argc, char *argv[], std::vector<std::string>&out){
     for (size_t i = 1; i < argc; ++i){
-        if(strchr(argv[i], '/') || strchr(argv[i], '\\')){
+        if(isPath(argv[i])){
             out.push_back(argv[i]);
         }
     }
@@ -115,6 +116,14 @@ bool isDefaultOption(int32_t argc, char *argv[]){
         bDefaultOption = argv[1 + !strcmp(argv[1], EXACT_MATCH_OPTION)][0] != '-';
     }
     return bDefaultOption;
+}
+bool havePath(const std::vector<std::string>&in){
+    for (size_t i = 0; i < in.size(); ++i){
+        if(isPath(in[i].c_str())){
+            return true;
+        }
+    }
+    return false;
 }
 int main(int32_t argc, char *argv[], char *envp[]){//envp环境变量表
 	double getdir_totaltime = 0.0f, search_totaltime = 0.0f;
@@ -194,6 +203,9 @@ int main(int32_t argc, char *argv[], char *envp[]){//envp环境变量表
 		//判断需要查询的类型
 		std::vector<std::string> findStr;//./query strcpy -s ...
 		get_option_val(argc, argv, g_Option[i], findStr, 0);
+        do{
+            removePath(findStr);
+        }while(havePath(findStr));
 		if(findStr.empty())continue;
 		//后面真正用来搜索的路径
 		// }
