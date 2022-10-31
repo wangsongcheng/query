@@ -35,6 +35,7 @@
 #define NAMESPACE_OPTION "-ns"
 #define ALL_OPTION "-a"
 #define EXACT_MATCH_OPTION "-em"
+#define CASE_INSENSITIVE_OPTION "-ci"
 // #define NO_SEARCH_FILE_OPTION "-nsf"
 // #define NO_SEARCH_PATH_OPTION "-nsd"
 // #define PATH_OPTION "-d"
@@ -51,12 +52,20 @@ enum Search_Type{
 	searchNameSpace,
 	searchAll
 };
+//设置的数值，二进制上必须只有1个1
+enum Search_Option_Bit{
+    SO_NONE_BIT = 0,
+    SO_EXACT_MATCH_BIT,
+    // SO_CASE_INSENSITIVE_BIT = 2
+};
+typedef uint32_t SearchOptionBit;
 struct search_infor{
 	std::string spath;//search path
 	std::vector<std::string> sfname;//search file name
 };
-bool g_ExactMatch;
+// bool g_ExactMatch;
 //bool g_bFun;
+void ConvertCase(char *content, uint32_t len, bool tolower = true);
 int getfilelen(FILE *fp);
 void getdir(const char *root, std::vector<search_infor>&path);
 bool get_val_in_line(int argc, char *argv[], const std::string&lpsstr, std::string&lpstr, int32_t start = 1);
@@ -74,11 +83,11 @@ void remove_comment(char *content);
 void removeSame(const std::vector<std::string>&in, std::vector<std::string>&out);
 void removeArgv(int32_t&argc, char *argv[], uint32_t index);
 // void removeSame(const std::vector<std::string>&in, std::vector<search_infor>&out);
-void search(const std::string&cPath, const std::string&filename, const std::string&lpstr, void(*fun)(const std::string&content, const std::string&lpstr, std::vector<std::string>&str));
-void search_fun(const std::string&content, const std::string&lpstr, std::vector<std::string>&str);
-void search_macro(const std::string&content, const std::string&lpstr, std::vector<std::string>&str);
-void search_struct(const std::string&content, const std::string&lpstr, std::vector<std::string>&str);
-void search_type_define(const std::string&content, const std::string&lpstr, std::vector<std::string>&str);
+void search(const std::string&cPath, const std::string&filename, const std::string&lpstr, void(*fun)(const std::string&content, const std::string&lpstr, std::vector<std::string>&str, SearchOptionBit option), SearchOptionBit option);
+void search_fun(const std::string&content, const std::string&lpstr, std::vector<std::string>&str, SearchOptionBit option);
+void search_macro(const std::string&content, const std::string&lpstr, std::vector<std::string>&str, SearchOptionBit option);
+void search_struct(const std::string&content, const std::string&lpstr, std::vector<std::string>&str, SearchOptionBit option);
+void search_type_define(const std::string&content, const std::string&lpstr, std::vector<std::string>&str, SearchOptionBit option);
 #ifdef WIN32
 void SetTextColor(WORD color);
 #endif
@@ -141,28 +150,21 @@ int main(int32_t argc, char *argv[], char *envp[]){//envp环境变量表
 	// std::vector<std::string> searchFile;
 	// std::vector<std::string> noSearchPath;
 	// std::vector<std::string> noSearchFile;// = { "vulkan_core.h" };
-	/*
-		目前的程序，不希望用户通过-n选项指定其他路径的文件。需要指定其他路径，必须通过-d+-sf选项
-		*.h
-
-		如果用户指定了路径和文件名。但希望搜索该路径下所有文件以及搜索指定的文件名？
-		目前的程序都是直接将路径和指定的文件名绑定
-	*/
 	// get_option_val(argc, argv, FILE_OPTION, searchFile);
 	// get_option_val(argc, argv, NO_SEARCH_PATH_OPTION, noSearchPath);
 	// get_option_val(argc, argv, NO_SEARCH_FILE_OPTION, noSearchFile);
-    int32_t em_Option = get_index_in_line(argc, argv, EXACT_MATCH_OPTION);
-    if(INVALID_VAL != em_Option){
-        g_ExactMatch = true;
-        //目前是期望-s -em。但有可能是-em -s
-        if(argv[em_Option - 1][0] == '-'){
-            removeArgv(argc, argv, em_Option);
-        }
+    int32_t sOption = get_index_in_line(argc, argv, EXACT_MATCH_OPTION);
+    SearchOptionBit searchOption = SO_NONE_BIT;
+    if(INVALID_VAL != sOption){
+        searchOption |= SO_EXACT_MATCH_BIT;
+        removeArgv(argc, argv, sOption);
     }
-	//上面获取的有可能是正则表达式,
-	// get_option_val(argc, argv, PATH_OPTION, rootPath);
+    // sOption = get_index_in_line(argc, argv, CASE_INSENSITIVE_OPTION);
+    // if(INVALID_VAL != sOption){
+    //     searchOption |= SO_CASE_INSENSITIVE_BIT;
+    //     removeArgv(argc, argv, sOption);
+    // }
     getRootPath(argc, argv, rootPath);
-
 	if(rootPath.empty()){//用户未指定目录就从默认的目录查找
 #ifdef __linux
 		rootPath.push_back(DEFAULT_INCLUDE_PATH_USR_INCLUDE);
@@ -181,7 +183,7 @@ int main(int32_t argc, char *argv[], char *envp[]){//envp环境变量表
 #endif
 	}
 	// removeSame(noSearchFile, searchFile);
-	void (*fun[])(const std::string&content, const std::string&lpstr, std::vector<std::string>&str) = {
+	void (*fun[])(const std::string&, const std::string&, std::vector<std::string>&, SearchOptionBit) = {
 		search_fun,
 		search_macro,
 		search_struct,//class、enum、namespace
@@ -207,16 +209,6 @@ int main(int32_t argc, char *argv[], char *envp[]){//envp环境变量表
             removePath(findStr);
         }while(havePath(findStr));
 		if(findStr.empty())continue;
-		//后面真正用来搜索的路径
-		// }
-		// else{
-		// 	//如果指定了文件名。就搜集起来
-		// 	for (size_t uiRootPath = 0; uiRootPath < rootPath.size(); ++uiRootPath){
-		// 		for (size_t uiSearchFile = 0; uiSearchFile < searchFile.size(); ++uiSearchFile){
-		// 			searchPath[uiRootPath].sfname.push_back(searchFile[uiSearchFile]);
-		// 		}
-		// 	}
-		// }
 		search_file_start = clock();
 		for (size_t uiFindStr = 0; uiFindStr < findStr.size(); ++uiFindStr){
 			for (size_t uiSearchPath = 0; uiSearchPath < searchPath.size(); ++uiSearchPath){
@@ -229,18 +221,11 @@ int main(int32_t argc, char *argv[], char *envp[]){//envp环境变量表
 						funIndex = searchStruct;//------note:
 					}
 					for (size_t uiDir = 0; uiDir < dir.sfname.size(); ++uiDir){
-						search(dir.spath, dir.sfname[uiDir], findStr[uiFindStr], fun[funIndex]);
+						search(dir.spath, dir.sfname[uiDir], findStr[uiFindStr], fun[funIndex], searchOption);
 					}
 				}
 				else{
 					for (size_t uiDir = 0; uiDir < dir.sfname.size(); ++uiDir){
-						// for (size_t uiFun = 0; uiFun < sizeof(fun) / sizeof(int *); ++uiFun){
-						// 	if(uiFun > searchTypeDefine){
-						// 		const char *s[] = { "union", "enum", "class", "namespace" };
-						// 		searchStructString = s[uiFun - 4];
-						// 	}
-						// 	search(dir.spath, dir.sfname[uiDir], findStr[uiFindStr], fun[uiFun]);
-						// }
 						for (size_t uiFun = 0; uiFun < sizeof(fun) / sizeof(int *) + 4; ++uiFun){
 							if(uiFun > searchTypeDefine){
 								const char *s[] = { "union", "enum", "class", "namespace" };
@@ -249,7 +234,7 @@ int main(int32_t argc, char *argv[], char *envp[]){//envp环境变量表
 							else{
 								searchStructString = "struct";
 							}
-							search(dir.spath, dir.sfname[uiDir], findStr[uiFindStr], fun[uiFun > searchTypeDefine ? uiFun - 4 : uiFun]);
+							search(dir.spath, dir.sfname[uiDir], findStr[uiFindStr], fun[uiFun > searchTypeDefine ? uiFun - 4 : uiFun], searchOption);
 						}
 					}					
 				}
@@ -283,8 +268,8 @@ void removeSame(const std::vector<std::string>&in, std::vector<std::string>&out)
 	}
 }
 void removeArgv(int32_t&argc, char *argv[], uint32_t index){
-    for (size_t i = index + 1; i < argc; ++i){
-        argv[index] = argv[i];
+    for (size_t i = index; i < argc; ++i){
+        argv[i] = argv[i + 1];
     }
     // argv[argc - 1] = nullptr;
     --argc;
@@ -378,7 +363,25 @@ uint32_t GetFileContent(const std::string&file, char *content){
 	fclose(fp);
 	return size;
 }
-void search(const std::string&cPath, const std::string&filename, const std::string&lpstr, void(*fun)(const std::string&content, const std::string&lpstr, std::vector<std::string>&str)){
+void ConvertCase(char *content, uint32_t len, bool toLower){
+    //先判断是否小写/大写, 然后再转换
+    if(toLower){
+        for (size_t i = 0; i < len; ++i){
+            if(!islower(content[i])){
+                content[i] = tolower(content[i]);
+            }
+        }
+    }
+    else{
+        //上面是把所有大写转成小写, 小写不管, 下面则相反。除非改确实能做到前面的功能, 否则不能修改
+        for (size_t i = 0; i < len; ++i){
+            if(islower(content[i])){
+                content[i] = toupper(content[i]);
+            }
+        }
+    }
+}
+void search(const std::string&cPath, const std::string&filename, const std::string&lpstr, void(*fun)(const std::string&content, const std::string&lpstr, std::vector<std::string>&str, SearchOptionBit option), SearchOptionBit option){
 	std::string szPath;
 	char *content;
 	if('/' != cPath[cPath.length() - 1])
@@ -391,8 +394,14 @@ void search(const std::string&cPath, const std::string&filename, const std::stri
 	GetFileContent(szPath, content);
 	content[size] = 0;
 	// remove_comment(content);
+
+    // ConvertCase(content, size);//如果直接这么改，那么显示出来的结果也全被转换为大写或小写
+    // char *searchStr = new char[lpstr.length() + 1];
+    // strcpy(searchStr, lpstr.c_str());
+    // ConvertCase(searchStr, lpstr.length());
 	std::vector<std::string>str;
-	fun(content, lpstr, str);
+	fun(content, lpstr, str, option);
+    // delete[]searchStr;
 	int line;
 	const char *lpStart = 0;//show line
 	if(!str.empty()){
@@ -477,7 +486,7 @@ const char *movepointer(const char *p, char ch, bool bfront){
 }
 /*}}}*/
 // #define USE_REGEXP 
-void search_fun(const std::string&content, const std::string&lpstr, std::vector<std::string>&str){
+void search_fun(const std::string&content, const std::string&lpstr, std::vector<std::string>&str, SearchOptionBit option){
 	const char *lpStart = content.c_str(), *lpEnd = strstr(content.c_str(), lpstr.c_str()), *lpTemp = lpStart;
     if(!lpEnd)return;
 #define FUNCTION_MAX_CHA 500
@@ -514,7 +523,7 @@ void search_fun(const std::string&content, const std::string&lpstr, std::vector<
         if(len <= FUNCTION_MAX_CHA){//函数声明一般都不会太多字符。目前先假设最多只有这样
             std::string fun(lpStart, len + 1);
             if(isFun(fun, lpstr.c_str())){
-                if(!g_ExactMatch || isExacgMatch(fun, lpstr)){
+                if(!(option & SO_EXACT_MATCH_BIT) || isExacgMatch(fun, lpstr)){
                     std::string _str(lpStart, len + 1);
                     str.push_back(_str);
                 }
@@ -526,7 +535,7 @@ void search_fun(const std::string&content, const std::string&lpstr, std::vector<
 #undef FUNCTION_MAX_CHA
 }
 /*{{{*/
-void search_macro(const std::string&content, const std::string&lpstr, std::vector<std::string>&str){
+void search_macro(const std::string&content, const std::string&lpstr, std::vector<std::string>&str, SearchOptionBit option){
 	const char *lpStart = content.c_str();
 	char buffer[MAXBYTE] = {0};
 	sprintf(buffer, "#define %s", lpstr.c_str());
@@ -536,14 +545,14 @@ void search_macro(const std::string&content, const std::string&lpstr, std::vecto
             ++lpEnd;
 		}
 		std::string buff(lpStart, lpEnd - lpStart);
-        if(!g_ExactMatch || isExacgMatch(buff, lpstr)){
+        if(!(option & SO_EXACT_MATCH_BIT) || isExacgMatch(buff, lpstr)){
 		    str.push_back(buff);
         }
 		lpStart += lpstr.length() + strlen("#define ");
 	}
 }
 /*}}}*/
-void search_struct(const std::string&content, const std::string&lpstr, std::vector<std::string>&str){
+void search_struct(const std::string&content, const std::string&lpstr, std::vector<std::string>&str, SearchOptionBit option){
 //just search struct name;no search struct alias name
 	// int count = content.length();
 	const char *lpEnd = nullptr;
@@ -569,14 +578,14 @@ void search_struct(const std::string&content, const std::string&lpstr, std::vect
 		}
 		if(lpEnd){
             std::string buff(lpStart, lpEnd - lpStart);
-            if(!g_ExactMatch || isExacgMatch(buff, lpstr)){
+            if(!(option & SO_EXACT_MATCH_BIT) || isExacgMatch(buff, lpstr)){
                 str.push_back(buff);
             }
 		}
 		lpStart += lpstr.length() + searchStructString.length() + strlen("typedef");
 	}
 }
-void search_type_define(const std::string&content, const std::string&lpstr, std::vector<std::string>&str){
+void search_type_define(const std::string&content, const std::string&lpstr, std::vector<std::string>&str, SearchOptionBit option){
 	const char *lpStart = content.c_str();
 	char buffer[MAXBYTE] = {0};
 	sprintf(buffer, "typedef %s", lpstr.c_str());
@@ -584,7 +593,7 @@ void search_type_define(const std::string&content, const std::string&lpstr, std:
 		const char *lpEnd = strchr(lpStart, '\n');
 		if(lpEnd){
 			std::string buff(lpStart, lpEnd - lpStart);
-            if(!g_ExactMatch || isExacgMatch(buff, lpstr)){
+            if(!(option & SO_EXACT_MATCH_BIT) || isExacgMatch(buff, lpstr)){
 			    str.push_back(buff);
             }
 		}
@@ -615,6 +624,7 @@ void help(){
 	// printf("%s表示不在该路及内搜索\n", NO_SEARCH_PATH_OPTION);
 	// printf("%s表示不在该文件内搜索\n", NO_SEARCH_FILE_OPTION);
     printf("\t'%s' 完全匹配\n", EXACT_MATCH_OPTION);
+    printf("\t'%s' 不区分大小写\n", CASE_INSENSITIVE_OPTION);
 	printf("\t'%s' 搜索所有类型\n", ALL_OPTION);
 	printf("\t'%s' 搜索枚举\n", ENUM_OPTION);
 	printf("\t'%s' 搜索联合体\n", UNION_OPTION);
