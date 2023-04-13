@@ -84,7 +84,7 @@ bool get_val_in_line(int argc, char *argv[], const std::string&lpsstr, std::stri
 int get_index_in_line(int argc, char *argv[], const std::string&str, int32_t start = 1);
 void get_option_val(int argc, char *argv[], const std::string&opt, std::vector<std::string>&out, int32_t start = 1);
 int linage(const std::string&content);
-void help();
+void help(int32_t argc, char *argv[]);
 // bool isCommit(const char *pStr, int len);
 bool isExacgMatch(const std::string&str, const std::string&searchName);
 bool isOption(int argc, char *argv[], int index);
@@ -185,11 +185,11 @@ int main(int32_t argc, char *argv[], char *envp[]){//envp环境变量表
 	// clock_t getdir_start, getdir_finish, search_file_start, search_file_finish;//time count
 	// const std::vector<std::string> option = { FUNCTION_OPTION, MACRO_OPTION,  STRUCTURE_OPTION, TYPEDEF_OPTION, UNION_OPTION, ENUM_OPTION, CLASS_OPTION, NAMESPACE_OPTION };//, "-d", "-n"
 	if(isInvalid(argc, argv)){
-		help();
+		help(argc, argv);
 		return -1;
 	}
 	if(isDefaultOption(argc, argv)){
-        strcpy(argv[0], "-" ALL_OPTION);
+        strcpy(argv[0], "-" FUNCTION_OPTION);
     }
 	std::vector<std::string> rootPath;
 	// std::vector<std::string> searchFile;
@@ -237,13 +237,30 @@ int main(int32_t argc, char *argv[], char *envp[]){//envp环境变量表
 // 	getdir_start = clock();
 // #endif
 	for (size_t uiRootPath = 0; uiRootPath < rootPath.size(); ++uiRootPath){
-		getdir(rootPath[uiRootPath].c_str(), searchPath);
+		const uint32_t rootPathLength = rootPath[uiRootPath].length();
+		if(rootPath[uiRootPath][rootPathLength - 1] == '/' || rootPath[uiRootPath][rootPathLength - 1] == '\\'){
+			//指定的是目录
+			getdir(rootPath[uiRootPath].c_str(), searchPath);
+		}
+		else{
+				search_infor info;
+				for (size_t i = rootPathLength - 1; i >= 0; --i){
+					if(rootPath[uiRootPath][i] == '/' || rootPath[uiRootPath][i] == '\\'){
+						info.sfname.push_back(rootPath[uiRootPath].c_str() + i + 1);
+						char str[MAX_PATH];
+						memcpy(str, rootPath[uiRootPath].c_str(), i);
+						info.spath = str;
+						searchPath.push_back(info);
+						break;
+					}
+				}
+		}
 	}
 // #ifdef DEBUG
 // 	getdir_finish = clock();
 // 	getdir_totaltime = (double)(getdir_finish - getdir_start) / CLOCKS_PER_SEC;
 // #endif
-	//没传选项的话应该默认-a
+	//没传选项的话应该默认-f
 	//支持查询多个相同选项：-f strcpy printf -m MAXBYTE -m A
 	std::vector<std::string>option;
 	get_option(argc, argv, option);
@@ -730,10 +747,10 @@ bool get_val_in_line(int argc, char *argv[], const std::string&lpsstr, std::stri
 	}
 	return false;
 }
-void help(){
+void help(int32_t argc, char *argv[]){
 	//没传选项的话应该默认-a
 	printf("格式:[选项] 搜索内容 [选项] [搜索内容] [搜索内容]...\n");
-	printf("例子:./query strcpy strcat -s VkDeviceC -f vkCmdDraw -sf VkDeviceCreateInfo ./include\n");
+	printf("例子:%s strcpy strcat -s VkDeviceC -f vkCmdDraw -sf VkDeviceCreateInfo ./include\n", argv[0]);
 	// printf("example:\n\t./query strcpy strcat -s VkDeviceC -f vkCmdDraw -s VkDeviceCreateInfo -sf string.h vulkan_core.h\n\t./query -f strcpy strcat -s VkDeviceC -f vkCmdDraw -s VkDeviceCreateInfo -sf string.h vulkan_core.h\n");
     // printf("\t如果未指定\"选项\", 则默认为'%s'\n", FUNCTION_OPTION);
 	printf("选项:\n");
@@ -752,12 +769,12 @@ void help(){
 	printf("\t'-%s' 搜索命名空间\n", NAMESPACE_OPTION);
 	printf("\t'-%s' 搜索typedef\n", TYPEDEF_OPTION);
     printf("说明:\n");
-    printf("\t如果未指定\"选项\", 则默认为'-%s'\n", ALL_OPTION);
+    printf("\t如果未指定\"选项\", 则默认为'-%s'\n", FUNCTION_OPTION);
 	// printf("\t'%s' indicate search in that file;\n", FILE_OPTION);
     printf("注意:\n");
 	printf("\t'-%s'选项将忽略当前选项的其他选项, 例如'-%s%s%s', 将只执行'-%s'选项\n", ALL_OPTION, FUNCTION_OPTION, ALL_OPTION, STRUCTURE_OPTION, ALL_OPTION);
     printf("\t如果路径只有一层, 则必须包含'/'或'./'。\n");
-    printf("\t./query strcpy ./include\t可以获取路径\n\t\t\tinclude/\t可以获取路径\n\t\t\tinclude\t\t无法获取路径\n");
+    printf("\t./query strcpy ./include\t可以获取路径,但include被视为文件\n\t\t\tinclude/\t可以获取路径\n\t\t\tinclude\t\t无法获取路径\n");
 }
 bool isInvalid(int argc, char *argv[]){
 	return argc < 2;
