@@ -547,12 +547,12 @@ void search(const std::string&cPath, const std::string&filename, const std::stri
 bool isFun(const std::string&str, const char *fun_name){
 	bool bIsFun = false;
 	/*
-		函数:返回类型 函数名(零个或多个参数,可能带回车符);
+		函数声明:返回类型 函数名(零个或多个参数,可能带回车符);
 		void (*(*fun(...))(...))(...) ;
 
 
 		//---------
-		函数参数必须是带类型的，这里没有判断
+		函数参数必须是带返回类型的，这里没有判断
 	*/
 	size_t funNameSize = strlen(fun_name);
 	size_t funNamePos = str.find(fun_name);
@@ -560,18 +560,18 @@ bool isFun(const std::string&str, const char *fun_name){
 	size_t _c = str.find(')', funNamePos + funNameSize);
 	const std::string invalidStr[] = {
 		"if(", "if (", "return", "|", "!", "&&", "#", "->", "typedef",
-		":", "{", "}", "$", "@", "%", "^", "/", "\\", "%", "//", "\"",
-        "/*", "*/", "+", "-", "[", "]"
+		":", "{", "}", "$", "@", "%", "^", "/", "%", "//", "/*", "*/",
+		"+", "-", "[", "]", ".", "~", "<", ">"
 	};
+	//排除不可能出现在函数声明的字符//完全匹配-在确定是函数(或其他待查找类似)后。必须要前面空格或回车等。后面括号等才行
 	for(int32_t i = 0; i < sizeof(invalidStr) / sizeof(std::string); ++i)
 		if(std::string::npos != str.find(invalidStr[i]))
 			return false;
 	//排除连基本的函数声明特征都没有的字符串(没有指定的函数名没有一对括号)
-	if(std::string::npos != funNamePos && std::string::npos != c && str.find('(') > funNamePos && std::string::npos != _c){
+	// size_t firstC = str.find('(');//有一些函数调用类似xxx(xxx()),该变量保存的是第一个'('和上面的c有所不同&& firstC > funNamePos && str.find(')') > firstC
+	if(std::string::npos != str.find(";") && std::string::npos != funNamePos && std::string::npos != c && std::string::npos != _c){
 		if(str[c + 1] != ')' && std::string::npos == str.find(" "))return false;
-		//排除不可能出现在函数声明的字符
-		size_t comma = str.find(',');
-		size_t point = str.find('.');
+		// size_t comma = str.find(',');
 		// if((comma == std::string::npos || c < comma) && (std::string::npos == point || str[point + 1] == '.')){
 			//等号有可能是默认参数。必须额外判断
 			size_t p = str.find('=');
@@ -604,7 +604,7 @@ const char *movepointer(const char *p, char ch, bool bfront){
 void search_fun(const std::string&content, const std::string&lpstr, std::vector<std::string>&str){
 	const char *lpStart = content.c_str(), *lpEnd = strstr(content.c_str(), lpstr.c_str()), *lpTemp = lpStart;
     if(!lpEnd)return;
-#define FUNCTION_MAX_CHA 500
+#define FUNCTION_MAX_CHA 300
 #ifdef USE_REGEXP
 	 std::smatch result;
 	 char lpReg[100] = {0};
@@ -646,7 +646,8 @@ void search_fun(const std::string&content, const std::string&lpstr, std::vector<
 				str.push_back(_str);
             }
         }
-        lpStart += len + 1;
+        lpStart = lpEnd + lpstr.length();
+        // lpStart += len + 1;
     } while (lpEnd = strstr(lpStart, lpstr.c_str()));
 #endif
 #undef FUNCTION_MAX_CHA
@@ -774,7 +775,7 @@ void help(int32_t argc, char *argv[]){
     printf("注意:\n");
 	printf("\t'-%s'选项将忽略当前选项的其他选项, 例如'-%s%s%s', 将只执行'-%s'选项\n", ALL_OPTION, FUNCTION_OPTION, ALL_OPTION, STRUCTURE_OPTION, ALL_OPTION);
     printf("\t如果路径只有一层, 则必须包含'/'或'./'。\n");
-    printf("\t./query strcpy ./include\t可以获取路径,但include被视为文件\n\t\t\tinclude/\t可以获取路径\n\t\t\tinclude\t\t无法获取路径\n");
+    printf("\t%s strcpy ./include\t可以获取路径,但include被视为文件\n\t\t\tinclude/\t可以获取路径\n\t\t\tinclude\t\t无法获取路径\n", argv[0]);
 }
 bool isInvalid(int argc, char *argv[]){
 	return argc < 2;
