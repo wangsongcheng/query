@@ -35,6 +35,7 @@
 #define ENUM_OPTION "e"
 #define CLASS_OPTION "c"
 #define NAMESPACE_OPTION "n"
+// #define PATH_OPTION "p"
 #define ALL_OPTION "a"
 // #define EXACT_MATCH_OPTION "-em"
 // #define CASE_INSENSITIVE_OPTION "-ci"
@@ -504,7 +505,10 @@ void search(const std::string&cPath, const std::string&filename, const std::stri
 	else
 		szPath = cPath + filename;
 	uint32_t size = GetFileContent(szPath, nullptr);
-	if(size < 1)return;
+	if(size >= -1){
+		printf("无法打开'%s'文件,如果该文件为路径那么应该在最后加上'/'\n例如%s/\n", szPath.c_str(), szPath.c_str());
+		return;
+	}
 	content = new char[size + 1];
 	GetFileContent(szPath, content);
 	content[size] = 0;
@@ -749,11 +753,10 @@ bool get_val_in_line(int argc, char *argv[], const std::string&lpsstr, std::stri
 	return false;
 }
 void help(int32_t argc, char *argv[]){
-	//没传选项的话应该默认-a
+	//没传选项的话应该默认-f
 	printf("格式:[选项] 搜索内容 [选项] [搜索内容] [搜索内容]...\n");
-	printf("例子:%s strcpy strcat -s VkDeviceC -f vkCmdDraw -sf VkDeviceCreateInfo ./include\n", argv[0]);
+	printf("例子:%s strcpy strcat -s VkDeviceC -f vkCmdDraw -sf VkDeviceCreateInfo ./include/\n", argv[0]);
 	// printf("example:\n\t./query strcpy strcat -s VkDeviceC -f vkCmdDraw -s VkDeviceCreateInfo -sf string.h vulkan_core.h\n\t./query -f strcpy strcat -s VkDeviceC -f vkCmdDraw -s VkDeviceCreateInfo -sf string.h vulkan_core.h\n");
-    // printf("\t如果未指定\"选项\", 则默认为'%s'\n", FUNCTION_OPTION);
 	printf("选项:\n");
 	// printf("%s表示不在该路及内搜索\n", NO_SEARCH_PATH_OPTION);
 	// printf("%s表示不在该文件内搜索\n", NO_SEARCH_FILE_OPTION);
@@ -774,8 +777,9 @@ void help(int32_t argc, char *argv[]){
 	// printf("\t'%s' indicate search in that file;\n", FILE_OPTION);
     printf("注意:\n");
 	printf("\t'-%s'选项将忽略当前选项的其他选项, 例如'-%s%s%s', 将只执行'-%s'选项\n", ALL_OPTION, FUNCTION_OPTION, ALL_OPTION, STRUCTURE_OPTION, ALL_OPTION);
-    printf("\t如果路径只有一层, 则必须包含'/'或'./'。\n");
+    printf("\t如果路径只有一层, 则必须包含'/'或'./'\n");
     printf("\t%s strcpy ./include\t可以获取路径,但include被视为文件\n\t\t\tinclude/\t可以获取路径\n\t\t\tinclude\t\t无法获取路径\n", argv[0]);
+
 }
 bool isInvalid(int argc, char *argv[]){
 	return argc < 2;
