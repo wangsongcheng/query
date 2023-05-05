@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <cstdint>
 #ifdef __linux
 #include <sys/stat.h>
 #include <dirent.h>
@@ -248,7 +249,7 @@ int main(int32_t argc, char *argv[], char *envp[]){//envp环境变量表
 				for (size_t i = rootPathLength - 1; i >= 0; --i){
 					if(rootPath[uiRootPath][i] == '/' || rootPath[uiRootPath][i] == '\\'){
 						info.sfname.push_back(rootPath[uiRootPath].c_str() + i + 1);
-						char str[MAX_PATH];
+						char str[MAX_PATH] = {0};
 						memcpy(str, rootPath[uiRootPath].c_str(), i);
 						info.spath = str;
 						searchPath.push_back(info);
@@ -460,7 +461,7 @@ uint32_t GetFileContent(const std::string&file, char *content){
 	if(!fp){
 		perror("read file error");
 		printf("path is %s\n", file.c_str());
-		return 0;
+		return -1;
 	}
 	int size = getfilelen(fp);
 	if(content){
@@ -499,7 +500,6 @@ void search(const std::vector<std::string>&findStr, const std::vector<search_inf
 }
 void search(const std::string&cPath, const std::string&filename, const std::string&lpstr, void(*fun)(const std::string&content, const std::string&lpstr, std::vector<std::string>&str)){
 	std::string szPath;
-	char *content;
 	if('/' != cPath[cPath.length() - 1])
 		szPath = cPath + "/" + filename;
 	else
@@ -509,11 +509,10 @@ void search(const std::string&cPath, const std::string&filename, const std::stri
 		printf("无法打开'%s'文件,如果该文件为路径那么应该在最后加上'/'\n例如%s/\n", szPath.c_str(), szPath.c_str());
 		return;
 	}
-	content = new char[size + 1];
+	char *content = new char[size + 1];
 	GetFileContent(szPath, content);
 	content[size] = 0;
-	// remove_comment(content);
-
+	remove_comment(content);
     // ConvertCase(content, size);//如果直接这么改，那么显示出来的结果也全被转换为大写或小写
     // char *searchStr = new char[lpstr.length() + 1];
     // strcpy(searchStr, lpstr.c_str());
@@ -814,25 +813,25 @@ int getfilelen(FILE *fp){
 }
 void remove_comment(char *content){
 	char *lpStart = content;
-	while((lpStart = strstr(lpStart, "//"))){
-		const char *lpEnd = strstr(lpStart, "\n");
-		if(lpEnd){
-			strcpy(lpStart, lpEnd);
-		}
-		else{
-			++lpStart;
-		}
-	}
-	lpStart = content;
 	while((lpStart = strstr(lpStart, "/*"))){
 		const char *lpEnd = strstr(lpStart, "*/");
 		if(lpEnd){
-			lpEnd += 2;
-			strcpy(lpStart, lpEnd);
+			// lpEnd += 2;
+			do{
+				if(*lpStart != '\n'){
+					*lpStart = ' ';
+				}
+				++lpStart;
+			}while(lpStart != lpEnd);
 		}
-		else{
+		else ++lpStart;
+	}
+	lpStart = content;
+	while((lpStart = strstr(lpStart, "//"))){
+		do{
+			*lpStart = ' ';
 			++lpStart;
-		}
+		}while(*lpStart && *lpStart != '\n');
 	}
 }
 int linage(const std::string&content){
