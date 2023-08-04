@@ -573,7 +573,7 @@ bool isFun(const std::string&str, const char *fun_name){
 	const char *equalsign = strchr(str.c_str(), '='), *f = strstr(str.c_str(), fun_name);
 	if(equalsign && equalsign < f)
 		return false;
-	if(strchr(str.c_str(), '('))return true;
+	if(strchr(fun_name, '('))return true;
 	//排除连基本的函数声明特征都没有的字符串(没有指定的函数名没有一对括号)
 	// size_t firstC = str.find('(');//有一些函数调用类似xxx(xxx()),该变量保存的是第一个'('和上面的c有所不同&& firstC > funNamePos && str.find(')') > firstC
 	if(std::string::npos != str.find(";") && std::string::npos != funNamePos && std::string::npos != c && std::string::npos != _c){
