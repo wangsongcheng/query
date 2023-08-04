@@ -25,7 +25,7 @@
 #define MAX_PATH 360
 #define DEFAULT_INCLUDE_PATH_USR_INCLUDE "/usr/include/"
 #define DEFAULT_INCLUDE_PATH_USR_LOCAL_INCLUDE "/usr/local/include/"
-#define DEFAULT_INCLUDE_PATH_USR_LIB "/usr/lib/"
+// #define DEFAULT_INCLUDE_PATH_USR_LIB "/usr/lib/"
 #endif
 #define INVALID_VAL -1
 #define FUNCTION_OPTION "f"
@@ -214,7 +214,7 @@ int main(int32_t argc, char *argv[], char *envp[]){//envp环境变量表
     getRootPath(argc, argv, rootPath);
 	if(rootPath.empty()){//用户未指定目录就从默认的目录查找
 #ifdef __linux
-		rootPath.push_back(DEFAULT_INCLUDE_PATH_USR_LIB);
+		// rootPath.push_back(DEFAULT_INCLUDE_PATH_USR_LIB);
 		rootPath.push_back(DEFAULT_INCLUDE_PATH_USR_INCLUDE);
 		rootPath.push_back(DEFAULT_INCLUDE_PATH_USR_LOCAL_INCLUDE);
 #endif
@@ -564,12 +564,16 @@ bool isFun(const std::string&str, const char *fun_name){
 	const std::string invalidStr[] = {
 		"if(", "if (", "return", "|", "!", "&&", "#", "->", "typedef",
 		":", "{", "}", "$", "@", "%", "^", "/", "%", "//", "/*", "*/",
-		"+", "-", "[", "]", ".", "~", "<", ">"
+		"+", "-", "[", "]", ".", "~", "<", ">", "||", "!=", "==", "&&"
 	};
 	//排除不可能出现在函数声明的字符//完全匹配-在确定是函数(或其他待查找类似)后。必须要前面空格或回车等。后面括号等才行
 	for(int32_t i = 0; i < sizeof(invalidStr) / sizeof(std::string); ++i)
 		if(std::string::npos != str.find(invalidStr[i]))
 			return false;
+	const char *equalsign = strchr(str.c_str(), '='), *f = strstr(str.c_str(), fun_name);
+	if(equalsign && equalsign < f)
+		return false;
+	if(strchr(str.c_str(), '('))return true;
 	//排除连基本的函数声明特征都没有的字符串(没有指定的函数名没有一对括号)
 	// size_t firstC = str.find('(');//有一些函数调用类似xxx(xxx()),该变量保存的是第一个'('和上面的c有所不同&& firstC > funNamePos && str.find(')') > firstC
 	if(std::string::npos != str.find(";") && std::string::npos != funNamePos && std::string::npos != c && std::string::npos != _c){
@@ -640,14 +644,14 @@ void search_fun(const std::string&content, const std::string&lpstr, std::vector<
         uint32_t len = strcspn(lpStart, ";");
         if(len <= FUNCTION_MAX_CHA){//函数声明一般都不会太多字符。目前先假设最多只有这样
             std::string fun(lpStart, len + 1);
-            if(isFun(fun, lpstr.c_str())){
-                // if(!(option & SO_EXACT_MATCH_BIT) || isExacgMatch(fun, lpstr)){
-                //     std::string _str(lpStart, len + 1);
-                //     str.push_back(_str);
-                // }
-				std::string _str(lpStart, len + 1);
-				str.push_back(_str);
-            }
+				if(isFun(fun, lpstr.c_str())){
+					// if(!(option & SO_EXACT_MATCH_BIT) || isExacgMatch(fun, lpstr)){
+					//     std::string _str(lpStart, len + 1);
+					//     str.push_back(_str);
+					// }
+					std::string _str(lpStart, len + 1);
+					str.push_back(_str);
+				}
         }
         lpStart = lpEnd + lpstr.length();
         // lpStart += len + 1;
@@ -775,6 +779,7 @@ void help(int32_t argc, char *argv[]){
     printf("\t如果未指定\"选项\", 则默认为'-%s'\n", FUNCTION_OPTION);
 	// printf("\t'%s' indicate search in that file;\n", FILE_OPTION);
     printf("注意:\n");
+	printf("\t精准查找:%s \'fopen (\' \"fopen (\"\n\t精准查找要求和函数名完全一样。包括空格和括号\n", argv[0]);
 	printf("\t'-%s'选项将忽略当前选项的其他选项, 例如'-%s%s%s', 将只执行'-%s'选项\n", ALL_OPTION, FUNCTION_OPTION, ALL_OPTION, STRUCTURE_OPTION, ALL_OPTION);
     printf("\t如果路径只有一层, 则必须包含'/'或'./'\n");
     printf("\t%s strcpy ./include\t可以获取路径,但include被视为文件\n\t\t\tinclude/\t可以获取路径\n\t\t\tinclude\t\t无法获取路径\n", argv[0]);
