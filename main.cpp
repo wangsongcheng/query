@@ -701,27 +701,34 @@ void search_structure(const std::string&content, const std::string&lpstr, std::v
     //结构体前面带typedef.后面才能带别名
 	char buffer[MAXBYTE] = {0};
     //这里假设该结构体非匿名结构体
+	//想知道找到的是否结构体。应该先找到';'(应该跨行找)
+	//如果';'后面不是'}'则不可能是结构体----不一定 例如typedef struct xx { xxx }xx;
 	sprintf(buffer, "%s %s", typeName.c_str(), lpstr.c_str());
 	while((lpStart = strstr(lpStart, buffer))){
 		lpStart -= strlen("typedef ");
-		if(memcmp(lpStart, "typedef ", strlen("typedef")))lpStart += strlen("typedef ");
+		if(memcmp(lpStart, "typedef ", strlen("typedef ")))lpStart += strlen("typedef ");
 		lpEnd = strchr(lpStart, '\n');
-		if(lpEnd && memchr(lpStart, '{', strcspn(lpStart, "\n")) && ';' != *(lpEnd - 1)){
+		if(lpEnd && ';' != *(lpEnd - 1) && ')' != *(lpEnd - 2)){
+		// if(lpEnd && memchr(lpStart, '{', strcspn(lpStart, "\n")) && ';' != *(lpEnd - 1)){
 			uint32_t count = 1;
 			lpEnd = strchr(lpStart, '{');
 			do{
 				++lpEnd;
-				if(!lpEnd)break;
+				if(lpEnd == (char *)0x1){
+					--lpEnd;
+					break;
+				}
 				if(*lpEnd == '{')count++;
 				if(*lpEnd == '}')count--;
 			}while(count);
-			lpEnd = strchr(lpEnd, '\n');
-		}
-		if(lpEnd){
-            std::string buff(lpStart, lpEnd - lpStart);
-            // if(!(option & SO_EXACT_MATCH_BIT) || isExacgMatch(buff, lpstr)){
-            str.push_back(buff);
-            // }
+			if(lpEnd){//上面会改变lpEnd的值。必须判断
+				lpEnd = strchr(lpEnd, '\n');
+
+				std::string buff(lpStart, lpEnd - lpStart);
+				// if(!(option & SO_EXACT_MATCH_BIT) || isExacgMatch(buff, lpstr)){
+				str.push_back(buff);
+				// }
+			}
 		}
 		lpStart += lpstr.length() + typeName.length() + strlen("typedef");
 	}
@@ -821,7 +828,7 @@ void remove_comment(char *content){
 	while((lpStart = strstr(lpStart, "/*"))){
 		const char *lpEnd = strstr(lpStart, "*/");
 		if(lpEnd){
-			// lpEnd += 2;
+			lpEnd += 2;
 			do{
 				if(*lpStart != '\n'){
 					*lpStart = ' ';
