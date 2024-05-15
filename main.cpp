@@ -506,7 +506,7 @@ void search(const std::string&cPath, const std::string&filename, const std::stri
 		szPath = cPath + filename;
 	uint32_t size = GetFileContent(szPath, nullptr);
 	if(size >= -1){
-		printf("无法打开'%s'文件,如果该文件为路径那么应该在最后加上'/'\n例如%s/\n", szPath.c_str(), szPath.c_str());
+		printf("无法打开'%s'文件,如果该文件为路径那么应该在最后加上'/'\n例如:%s/\n", szPath.c_str(), szPath.c_str());
 		return;
 	}
 	char *content = new char[size + 1];
@@ -764,7 +764,7 @@ bool get_val_in_line(int argc, char *argv[], const std::string&lpsstr, std::stri
 }
 void help(int32_t argc, char *argv[]){
 	//没传选项的话应该默认-f
-	printf("格式:[选项] 搜索内容 [选项] [搜索内容] [搜索内容]...\n");
+	printf("格式:[选项] 名称 [选项] [名称] [名称]...\n");
 	printf("例子:%s strcpy strcat -s VkDeviceC -f vkCmdDraw -sf VkDeviceCreateInfo ./include/\n", argv[0]);
 	// printf("example:\n\t./query strcpy strcat -s VkDeviceC -f vkCmdDraw -s VkDeviceCreateInfo -sf string.h vulkan_core.h\n\t./query -f strcpy strcat -s VkDeviceC -f vkCmdDraw -s VkDeviceCreateInfo -sf string.h vulkan_core.h\n");
 	printf("选项:\n");
@@ -779,18 +779,12 @@ void help(int32_t argc, char *argv[]){
 	printf("\t'-%s' 搜索宏\n", MACRO_OPTION);
 	printf("\t'-%s' 搜索函数\n", FUNCTION_OPTION);
 	printf("\t'-%s' 搜索结构体\n", STRUCTURE_OPTION);
-	// printf("\t'%s' indicate search directory\n", PATH_OPTION);
 	printf("\t'-%s' 搜索命名空间\n", NAMESPACE_OPTION);
 	printf("\t'-%s' 搜索typedef\n", TYPEDEF_OPTION);
-    printf("说明:\n");
-    printf("\t如果未指定\"选项\", 则默认为'-%s'\n", FUNCTION_OPTION);
 	// printf("\t'%s' indicate search in that file;\n", FILE_OPTION);
     printf("注意:\n");
-	printf("\t精准查找:%s \'fopen (\' \"fopen (\"\n\t精准查找要求和函数名完全一样。包括空格和括号\n", argv[0]);
-	printf("\t'-%s'选项将忽略当前选项的其他选项, 例如'-%s%s%s', 将只执行'-%s'选项\n", ALL_OPTION, FUNCTION_OPTION, ALL_OPTION, STRUCTURE_OPTION, ALL_OPTION);
-    printf("\t如果路径只有一层, 则必须包含'/'或'./'\n");
-    printf("\t%s strcpy ./include\t可以获取路径,但include被视为文件\n\t\t\tinclude/\t可以获取路径\n\t\t\tinclude\t\t无法获取路径\n", argv[0]);
-
+    printf("\t如果未指定\"选项\", 则默认为'-%s'\n", FUNCTION_OPTION);
+    printf("\t%s strcpy include/\t可以获取路径\n\t\t\tinclude\t无法获取路径\n", argv[0]);
 }
 bool isInvalid(int argc, char *argv[]){
 	return argc < 2;
